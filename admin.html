@@ -23,6 +23,7 @@
 <div id="screen-admin" class="admin-layout" style="display:none;">
     <div class="admin-nav">
         <p class="title" style="font-size:1.2rem;">BrainCare 管理画面</p>
+        <p class="hint-text" style="margin:-8px 0 16px;">ログイン中: <span id="admin-current-name"></span> さん</p>
         <button data-tab="stats" class="active">概要・統計</button>
         <button data-tab="users">利用者一覧</button>
         <button data-tab="create_user">利用者登録</button>
@@ -45,7 +46,7 @@
             <p class="title" style="font-size:1.3rem;">利用者一覧</p>
             <div style="overflow-x:auto;">
                 <table class="data-table" id="users-table">
-                    <thead><tr><th>利用者番号</th><th>名前</th><th>生年月日</th><th>権限</th><th>登録日</th><th></th><th></th></tr></thead>
+                    <thead><tr><th>利用者番号</th><th>名前</th><th>生年月日</th><th>権限</th><th>登録日</th><th></th><th></th><th></th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -83,6 +84,23 @@
                     <tbody></tbody>
                 </table>
             </div>
+        </div>
+
+        <div id="tab-edit_user" class="tab-panel" style="display:none;">
+            <p class="title" style="font-size:1.3rem;">利用者情報の編集</p>
+            <div class="form-grid">
+                <select id="eu-role" class="input-field">
+                    <option value="user">利用者（名前選択のみでログイン、パスワード不要）</option>
+                    <option value="admin">管理者（パスワードでログイン）</option>
+                </select>
+                <input id="eu-name" class="input-field" type="text" placeholder="お名前">
+                <input id="eu-password" class="input-field" type="password" placeholder="新しいパスワード（変更する場合のみ入力）" style="display:none;">
+                <input id="eu-birthday" class="input-field" type="date" placeholder="生年月日">
+                <p id="eu-error" class="error-text" style="display:none;"></p>
+                <p id="eu-success" style="display:none;color:#16855a;font-weight:700;">更新しました</p>
+                <button id="btn-update-user" class="btn">更新する</button>
+            </div>
+            <button id="btn-edit-user-back" class="btn btn-outline" style="margin-top:24px;max-width:160px;">← 利用者一覧へ</button>
         </div>
 
         <div id="tab-create_user" class="tab-panel" style="display:none;">

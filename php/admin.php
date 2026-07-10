@@ -19,6 +19,9 @@ switch ($action) {
     case 'delete_user':
         admin_action_delete_user($pdo, $currentAdmin);
         break;
+    case 'update_user':
+        admin_action_update_user($pdo);
+        break;
     case 'history':
         admin_action_history($pdo);
         break;
@@ -179,6 +182,89 @@ function admin_action_delete_user(PDO $pdo, array $currentAdmin): never
     $del->execute(['id' => $userId]);
 
     braincare_json_response(['deleted' => true]);
+}
+
+function admin_action_update_user(PDO $pdo): never
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        braincare_json_response(['error' => 'POSTメソッドのみ許可されています'], 405);
+    }
+
+    $raw = file_get_contents('php://input');
+    $body = json_decode($raw, true);
+    if (!is_array($body)) {
+        $body = $_POST;
+    }
+
+    $userId = (int) ($body['user_id'] ?? 0);
+    if ($userId <= 0) {
+        braincare_json_response(['error' => 'user_idが必要です'], 400);
+    }
+
+    $stmt = $pdo->prepare('SELECT id, role FROM users WHERE id = :id LIMIT 1');
+    $stmt->execute(['id' => $userId]);
+    $target = $stmt->fetch();
+    if ($target === false) {
+        braincare_json_response(['error' => '利用者が見つかりません'], 404);
+    }
+
+    $name = trim((string) ($body['name'] ?? ''));
+    $birthday = trim((string) ($body['birthday'] ?? ''));
+    $role = ($body['role'] ?? 'user') === 'admin' ? 'admin' : 'user';
+    $password = (string) ($body['password'] ?? '');
+
+    if ($name === '' || mb_strlen($name) > 100) {
+        braincare_json_response(['error' => '名前を正しく入力してください'], 400);
+    }
+
+    $dup = $pdo->prepare('SELECT id FROM users WHERE name = :name AND id != :id LIMIT 1');
+    $dup->execute(['name' => $name, 'id' => $userId]);
+    if ($dup->fetch() !== false) {
+        braincare_json_response(['error' => 'その名前は既に使用されています'], 409);
+    }
+
+    $birthdayValue = null;
+    if ($birthday !== '') {
+        $d = DateTime::createFromFormat('Y-m-d', $birthday);
+        if (!$d || $d->format('Y-m-d') !== $birthday) {
+            braincare_json_response(['error' => '生年月日はYYYY-MM-DD形式で入力してください'], 400);
+        }
+        $birthdayValue = $birthday;
+    }
+
+    // 最後の管理者を利用者へ降格させない
+    if ($target['role'] === 'admin' && $role !== 'admin') {
+        $adminCount = (int) $pdo->query("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'")->fetch()['c'];
+        if ($adminCount <= 1) {
+            braincare_json_response(['error' => '最後の管理者アカウントの権限は変更できません'], 400);
+        }
+    }
+
+    $setParts = ['name = :name', 'birthday = :birthday', 'role = :role'];
+    $params = ['id' => $userId, 'name' => $name, 'birthday' => $birthdayValue, 'role' => $role];
+
+    if ($role === 'admin') {
+        if ($password !== '') {
+            if (mb_strlen($password) < 4) {
+                braincare_json_response(['error' => 'パスワードは4文字以上にしてください'], 400);
+            }
+            $setParts[] = 'password = :password';
+            $params['password'] = password_hash($password, PASSWORD_DEFAULT);
+        } elseif ($target['role'] !== 'admin') {
+            braincare_json_response(['error' => '管理者にする場合はパスワードを設定してください'], 400);
+        }
+        // 既に管理者でパスワード未入力の場合は既存のパスワードを維持する
+    } else {
+        // 利用者化する場合はパスワードを不要にする(NULLへ)
+        $setParts[] = 'password = :password';
+        $params['password'] = null;
+    }
+
+    $sql = 'UPDATE users SET ' . implode(', ', $setParts) . ' WHERE id = :id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    braincare_json_response(['updated' => true]);
 }
 
 function admin_action_user_summary(PDO $pdo): never

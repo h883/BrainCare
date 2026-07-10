@@ -11,10 +11,14 @@
     };
 
     let token = sessionStorage.getItem('braincare_admin_token');
+    let currentAdminName = sessionStorage.getItem('braincare_admin_name');
 
     function showLoggedIn(show) {
         document.getElementById('screen-login').style.display = show ? 'none' : 'flex';
         document.getElementById('screen-admin').style.display = show ? 'grid' : 'none';
+        if (show) {
+            document.getElementById('admin-current-name').textContent = currentAdminName || '';
+        }
     }
 
     async function apiGet(action, params = {}) {
@@ -44,7 +48,9 @@
 
     function handleAuthFailure() {
         sessionStorage.removeItem('braincare_admin_token');
+        sessionStorage.removeItem('braincare_admin_name');
         token = null;
+        currentAdminName = null;
         showLoggedIn(false);
     }
 
@@ -73,7 +79,9 @@
                 return;
             }
             token = body.token;
+            currentAdminName = body.user.name;
             sessionStorage.setItem('braincare_admin_token', token);
+            sessionStorage.setItem('braincare_admin_name', currentAdminName);
             showLoggedIn(true);
             loadTab('stats');
         } catch (e) {
@@ -84,7 +92,9 @@
 
     document.getElementById('btn-logout').addEventListener('click', () => {
         sessionStorage.removeItem('braincare_admin_token');
+        sessionStorage.removeItem('braincare_admin_name');
         token = null;
+        currentAdminName = null;
         showLoggedIn(false);
     });
 
@@ -282,6 +292,7 @@
                 <td>${u.role === 'admin' ? '管理者' : '利用者'}</td>
                 <td>${u.created_at}</td>
                 <td><button class="btn btn-outline" data-view-user="${u.id}" style="padding:8px 14px;font-size:0.95rem;min-height:auto;">個人の記録を見る</button></td>
+                <td><button class="btn btn-outline" data-edit-user="${u.id}" data-user-name="${escapeHtml(u.name)}" data-user-birthday="${u.birthday || ''}" data-user-role="${u.role}" style="padding:8px 14px;font-size:0.95rem;min-height:auto;">編集</button></td>
                 <td><button class="btn btn-danger" data-delete-user="${u.id}" data-user-name="${escapeHtml(u.name)}" style="padding:8px 14px;font-size:0.95rem;min-height:auto;">削除</button></td>
             </tr>
         `).join('');
@@ -291,6 +302,16 @@
         const viewBtn = ev.target.closest('button[data-view-user]');
         if (viewBtn) {
             loadUserDetail(Number(viewBtn.dataset.viewUser));
+            return;
+        }
+        const editBtn = ev.target.closest('button[data-edit-user]');
+        if (editBtn) {
+            openEditUser({
+                id: Number(editBtn.dataset.editUser),
+                name: editBtn.dataset.userName,
+                birthday: editBtn.dataset.userBirthday,
+                role: editBtn.dataset.userRole,
+            });
             return;
         }
         const delBtn = ev.target.closest('button[data-delete-user]');
@@ -443,6 +464,48 @@
         document.getElementById('cu-name').value = '';
         document.getElementById('cu-password').value = '';
         document.getElementById('cu-birthday').value = '';
+    });
+
+    // ------- 利用者情報の編集 -------
+    let editingUserId = null;
+    const euPasswordField = document.getElementById('eu-password');
+    document.getElementById('eu-role').addEventListener('change', (ev) => {
+        euPasswordField.style.display = ev.target.value === 'admin' ? 'block' : 'none';
+    });
+
+    function openEditUser(user) {
+        editingUserId = user.id;
+        document.getElementById('eu-name').value = user.name;
+        document.getElementById('eu-birthday').value = user.birthday || '';
+        document.getElementById('eu-role').value = user.role;
+        euPasswordField.style.display = user.role === 'admin' ? 'block' : 'none';
+        euPasswordField.value = '';
+        euPasswordField.placeholder = user.role === 'admin' ? '新しいパスワード（変更する場合のみ入力）' : '';
+        document.getElementById('eu-error').style.display = 'none';
+        document.getElementById('eu-success').style.display = 'none';
+        showTabPanel('edit_user');
+    }
+
+    document.getElementById('btn-edit-user-back').addEventListener('click', () => showTabPanel('users'));
+
+    document.getElementById('btn-update-user').addEventListener('click', async () => {
+        const name = document.getElementById('eu-name').value.trim();
+        const password = euPasswordField.value;
+        const birthday = document.getElementById('eu-birthday').value;
+        const role = document.getElementById('eu-role').value;
+        const errorEl = document.getElementById('eu-error');
+        const successEl = document.getElementById('eu-success');
+        errorEl.style.display = 'none';
+        successEl.style.display = 'none';
+
+        const { ok, body } = await apiPost('update_user', { user_id: editingUserId, name, password, birthday, role });
+        if (!ok) {
+            errorEl.textContent = body.error || '更新に失敗しました';
+            errorEl.style.display = 'block';
+            return;
+        }
+        successEl.style.display = 'block';
+        loadUsers();
     });
 
     // ------- 学習履歴 -------

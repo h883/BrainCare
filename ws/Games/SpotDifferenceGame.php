@@ -20,7 +20,7 @@ class SpotDifferenceGame extends AbstractGame
 
     public function __construct()
     {
-        parent::__construct(totalRounds: 5, timeLimitMs: 25000);
+        parent::__construct(totalRounds: 20, timeLimitMs: 25000);
     }
 
     public function type(): string

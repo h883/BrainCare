@@ -11,7 +11,7 @@ class NumberOrderGame extends AbstractGame
 
     public function __construct()
     {
-        parent::__construct(totalRounds: 5, timeLimitMs: 20000);
+        parent::__construct(totalRounds: 20, timeLimitMs: 20000);
     }
 
     public function type(): string

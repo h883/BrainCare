@@ -28,7 +28,7 @@ class TrueFalseGame extends AbstractGame
 
     public function __construct()
     {
-        parent::__construct(totalRounds: 5, timeLimitMs: 12000);
+        parent::__construct(totalRounds: 20, timeLimitMs: 12000);
     }
 
     public function type(): string

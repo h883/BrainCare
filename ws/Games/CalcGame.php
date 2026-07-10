@@ -8,6 +8,11 @@ class CalcGame extends AbstractGame
 {
     private int $answer = 0;
 
+    public function __construct()
+    {
+        parent::__construct(totalRounds: 20, timeLimitMs: 15000);
+    }
+
     public function type(): string
     {
         return 'calc';

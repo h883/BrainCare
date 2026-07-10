@@ -9,6 +9,22 @@
         true_false: '○×クイズ',
         spot_difference: '間違い探し',
     };
+    const GAME_ICONS = {
+        calc: '🧮',
+        memory: '🧠',
+        number_order: '🔢',
+        word_scramble: '🔤',
+        true_false: '⭕',
+        spot_difference: '🔍',
+    };
+    const GAME_COLORS = {
+        calc: 'var(--color-primary)',
+        memory: 'var(--color-info)',
+        number_order: 'var(--color-accent)',
+        word_scramble: 'var(--color-purple)',
+        true_false: 'var(--color-success)',
+        spot_difference: 'var(--color-teal)',
+    };
     const GAME_TYPES = Object.keys(GAME_LABELS);
 
     // metaタグで明示的に指定されていればそれを使う。未指定の場合は、今アクセスしている
@@ -461,7 +477,8 @@
         GAME_TYPES.forEach((type) => {
             const soloBtn = document.createElement('button');
             soloBtn.className = 'btn';
-            soloBtn.textContent = GAME_LABELS[type];
+            soloBtn.style.background = GAME_COLORS[type] || '';
+            soloBtn.innerHTML = `<span class="tile-icon">${GAME_ICONS[type] || ''}</span>${GAME_LABELS[type]}`;
             soloBtn.addEventListener('click', () => {
                 ws.send(JSON.stringify({ type: 'start_solo', game_type: type }));
                 showScreen('game');

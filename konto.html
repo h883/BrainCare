@@ -39,11 +39,11 @@
 
     <p class="subtitle">遊び方を選んでください</p>
 
-    <div class="choice-list">
-        <button id="btn-goto-solo" class="btn">一人で遊ぶ</button>
-        <button id="btn-goto-join" class="btn">みんなで遊ぶ（参加コード入力）</button>
-        <button id="btn-start-test" class="btn" style="background:var(--color-info);">認知機能テストを受ける</button>
-        <button id="btn-weak-mode" class="btn" style="background:var(--color-accent);">苦手克服モード</button>
+    <div class="menu-tile-grid">
+        <button id="btn-goto-solo" class="btn"><span class="tile-icon">🎮</span>一人で遊ぶ</button>
+        <button id="btn-goto-join" class="btn"><span class="tile-icon">👥</span>みんなで遊ぶ<span class="tile-sub">参加コード入力</span></button>
+        <button id="btn-start-test" class="btn" style="background:var(--color-info);"><span class="tile-icon">🧠</span>認知機能テストを受ける</button>
+        <button id="btn-weak-mode" class="btn" style="background:var(--color-accent);"><span class="tile-icon">🎯</span>苦手克服モード</button>
     </div>
 
     <button id="btn-open-mypage" class="btn btn-outline" style="margin-top:32px;">自分の記録を見る</button>
@@ -54,7 +54,7 @@
 <div id="screen-solo-menu" class="screen" style="display:none;">
     <p class="title">一人で遊ぶ</p>
     <p class="subtitle">遊びたいゲームを選んでください</p>
-    <div class="choice-list" id="solo-game-list"></div>
+    <div class="menu-tile-grid solo-tile-grid" id="solo-game-list"></div>
     <button id="btn-solo-back" class="btn btn-outline" style="margin-top:24px;">戻る</button>
 </div>
 

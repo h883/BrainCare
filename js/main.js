@@ -10,7 +10,9 @@
         spot_difference: '間違い探し',
     };
 
-    const WS_URL = document.querySelector('meta[name="braincare-ws-url"]')?.content || 'ws://localhost:8080';
+    // metaタグで明示的に指定されていればそれを使う。未指定の場合は、今アクセスしている
+    // ホスト名（LAN IPやドメイン）に合わせて自動的にWebSocket接続先を組み立てる。
+    const WS_URL = document.querySelector('meta[name="braincare-ws-url"]')?.content || `ws://${location.hostname}:8080`;
     const screenId = new URLSearchParams(location.search).get('screen') || '1';
     document.getElementById('idle-screen-label').textContent = `画面番号: ${screenId}`;
 

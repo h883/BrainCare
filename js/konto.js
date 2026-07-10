@@ -11,7 +11,9 @@
     };
     const GAME_TYPES = Object.keys(GAME_LABELS);
 
-    const WS_URL = document.querySelector('meta[name="braincare-ws-url"]')?.content || 'ws://localhost:8080';
+    // metaタグで明示的に指定されていればそれを使う。未指定の場合は、今アクセスしている
+    // ホスト名（LAN IPやドメイン）に合わせて自動的にWebSocket接続先を組み立てる。
+    const WS_URL = document.querySelector('meta[name="braincare-ws-url"]')?.content || `ws://${location.hostname}:8080`;
 
     const screens = {
         login: document.getElementById('screen-login'),

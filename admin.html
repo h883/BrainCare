@@ -29,6 +29,7 @@
         <button data-tab="history">学習履歴</button>
         <button data-tab="battles">対戦履歴</button>
         <button data-tab="ranking">ランキング</button>
+        <button data-tab="messages">メッセージ</button>
         <button id="btn-logout" class="btn btn-danger" style="margin-top:24px;">ログアウト</button>
     </div>
     <div class="admin-main">
@@ -53,6 +54,7 @@
         <div id="tab-user_detail" class="tab-panel" style="display:none;">
             <button id="btn-user-detail-back" class="btn btn-outline" style="margin-bottom:16px;max-width:160px;">← 利用者一覧へ</button>
             <p class="title" style="font-size:1.3rem;" id="user-detail-name"></p>
+            <button id="btn-export-user-csv" class="btn btn-outline" style="max-width:260px;margin-bottom:16px;">この利用者の履歴をCSVダウンロード</button>
 
             <div id="user-detail-badge-list" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;"></div>
 
@@ -63,6 +65,16 @@
 
             <p class="title" style="font-size:1.1rem;">苦手分野（レーダーチャート）</p>
             <canvas id="user-detail-chart" width="440" height="420" style="max-width:100%;display:block;margin:0 auto;"></canvas>
+
+            <p class="title" style="font-size:1.1rem;margin-top:24px;">プレイカレンダー</p>
+            <div class="card" style="max-width:420px;margin:0 auto;">
+                <div class="calendar-nav">
+                    <button id="user-detail-cal-prev" class="btn btn-outline">←</button>
+                    <span class="calendar-label" id="user-detail-cal-label"></span>
+                    <button id="user-detail-cal-next" class="btn btn-outline">→</button>
+                </div>
+                <div id="user-detail-calendar"></div>
+            </div>
 
             <p class="title" style="font-size:1.1rem;margin-top:24px;">最近のプレイ履歴</p>
             <div style="overflow-x:auto;">
@@ -91,6 +103,7 @@
 
         <div id="tab-history" class="tab-panel" style="display:none;">
             <p class="title" style="font-size:1.3rem;">学習履歴（ソロプレイ）</p>
+            <button id="btn-export-history-csv" class="btn btn-outline" style="max-width:240px;margin-bottom:16px;">CSVダウンロード</button>
             <div style="overflow-x:auto;">
                 <table class="data-table" id="history-table">
                     <thead><tr><th>日時</th><th>利用者</th><th>ゲーム種別</th><th>スコア</th><th>正解数</th><th>プレイ時間(秒)</th></tr></thead>
@@ -114,6 +127,25 @@
             <div style="overflow-x:auto;">
                 <table class="data-table" id="ranking-table">
                     <thead><tr><th>順位</th><th>お名前</th><th>ポイント</th><th>勝</th><th>敗</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-messages" class="tab-panel" style="display:none;">
+            <p class="title" style="font-size:1.3rem;">メッセージ送信</p>
+            <div class="form-grid">
+                <select id="msg-target-select" class="input-field"></select>
+                <textarea id="msg-body-input" class="input-field" rows="4" placeholder="応援メッセージやお知らせを入力してください（500文字まで）"></textarea>
+                <p id="msg-error" class="error-text" style="display:none;"></p>
+                <p id="msg-success" style="display:none;color:#16855a;font-weight:700;">送信しました</p>
+                <button id="btn-send-message" class="btn">送信する</button>
+            </div>
+
+            <p class="title" style="font-size:1.1rem;margin-top:32px;">送信済みメッセージ</p>
+            <div style="overflow-x:auto;">
+                <table class="data-table" id="messages-table">
+                    <thead><tr><th>日時</th><th>宛先</th><th>送信者</th><th>内容</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>

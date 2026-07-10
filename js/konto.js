@@ -191,6 +191,38 @@
         document.getElementById('menu-user-name').textContent = user?.name || '';
         showScreen('menu');
         loadDailyGoals();
+        loadAnnouncements();
+    }
+
+    async function loadAnnouncements() {
+        const card = document.getElementById('menu-announcements-card');
+        const list = document.getElementById('menu-announcements-list');
+        try {
+            const res = await fetch('php/messages.php', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data.messages || data.messages.length === 0) {
+                card.style.display = 'none';
+                return;
+            }
+            card.style.display = 'block';
+            list.innerHTML = data.messages.map((m) => `
+                <li>
+                    <div class="hint-text">${m.created_at}（${escapeHtmlKonto(m.sender_name)}さんより）</div>
+                    <div>${escapeHtmlKonto(m.body)}</div>
+                </li>
+            `).join('');
+        } catch (e) {
+            card.style.display = 'none';
+        }
+    }
+
+    function escapeHtmlKonto(str) {
+        return String(str).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        }[c]));
     }
 
     let latestSummary = null;
@@ -203,6 +235,44 @@
         latestSummary = await res.json();
         return latestSummary;
     }
+
+    // ------- プレイカレンダー -------
+    const calendarState = (() => {
+        const now = new Date();
+        return { year: now.getFullYear(), month: now.getMonth() };
+    })();
+
+    function renderCalendar() {
+        const playDates = new Set((latestSummary && latestSummary.play_dates) || []);
+        const { year, month } = calendarState;
+        document.getElementById('mypage-cal-label').textContent = `${year}年${month + 1}月`;
+
+        const firstWeekday = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const todayStr = new Date().toISOString().slice(0, 10);
+
+        let html = '<div class="calendar-weekdays">' + ['日', '月', '火', '水', '木', '金', '土'].map((d) => `<span>${d}</span>`).join('') + '</div>';
+        html += '<div class="calendar-days">';
+        for (let i = 0; i < firstWeekday; i++) html += '<span></span>';
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const cls = ['cal-day', playDates.has(dateStr) ? 'played' : '', dateStr === todayStr ? 'today' : ''].join(' ').trim();
+            html += `<span class="${cls}">${day}</span>`;
+        }
+        html += '</div>';
+        document.getElementById('mypage-calendar').innerHTML = html;
+    }
+
+    document.getElementById('mypage-cal-prev').addEventListener('click', () => {
+        calendarState.month--;
+        if (calendarState.month < 0) { calendarState.month = 11; calendarState.year--; }
+        renderCalendar();
+    });
+    document.getElementById('mypage-cal-next').addEventListener('click', () => {
+        calendarState.month++;
+        if (calendarState.month > 11) { calendarState.month = 0; calendarState.year++; }
+        renderCalendar();
+    });
 
     async function loadDailyGoals() {
         const listEl = document.getElementById('menu-goal-list');
@@ -366,6 +436,8 @@
                 document.getElementById('mypage-chart-game-type'),
                 data.by_game_type
             );
+
+            renderCalendar();
 
             tbody.innerHTML = data.history.map((h) => `
                 <tr>

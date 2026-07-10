@@ -83,6 +83,20 @@ CREATE TABLE IF NOT EXISTS ranking (
     CONSTRAINT fk_ranking_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 介護スタッフから利用者へのメッセージ・お知らせ
+-- user_id が NULL の場合は全利用者への一斉送信メッセージ。
+CREATE TABLE IF NOT EXISTS messages (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id INT UNSIGNED NULL,
+    body VARCHAR(500) NOT NULL,
+    created_by INT UNSIGNED NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_user_id (user_id),
+    CONSTRAINT fk_messages_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_messages_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 初期管理者アカウント (name: admin / password: admin1234 ※導入後は必ず変更すること)
 INSERT INTO users (name, password, birthday, role)
 VALUES ('admin', '$2b$10$eA/OMsXqNH.17KaPZgtjbOv5UegrafPORyBD0v/iB2wuWUH7m0fji', NULL, 'admin')

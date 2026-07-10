@@ -65,7 +65,8 @@ function braincare_user_summary(PDO $pdo, int $userId): array
         'total_ranked' => $totalRanked,
     ];
 
-    $streakDays = braincare_calc_streak($pdo, $userId);
+    $playDates = braincare_play_dates($pdo, $userId);
+    $streakDays = braincare_calc_streak($playDates);
 
     return [
         'totals' => [
@@ -79,22 +80,28 @@ function braincare_user_summary(PDO $pdo, int $userId): array
         'history' => $history->fetchAll(),
         'ranking' => $rankingSummary,
         'streak_days' => $streakDays,
+        'play_dates' => $playDates,
         'badges' => braincare_user_badges((int) $totalsRow['plays'], (int) $totalsRow['total_correct'], $rankingSummary['win'], $streakDays),
         'daily_goals' => braincare_daily_goals($pdo, $userId),
     ];
+}
+
+/** 学習履歴のあった日付(Y-m-d)を新しい順に返す。カレンダー表示と連続日数の計算に使う。 */
+function braincare_play_dates(PDO $pdo, int $userId): array
+{
+    $stmt = $pdo->prepare(
+        'SELECT DISTINCT DATE(created_at) AS d FROM learning_history WHERE user_id = :uid ORDER BY d DESC LIMIT 400'
+    );
+    $stmt->execute(['uid' => $userId]);
+    return array_column($stmt->fetchAll(), 'd');
 }
 
 /**
  * 学習履歴のあった日を新しい順にたどり、今日または昨日から始まる連続プレイ日数を数える。
  * （今日まだプレイしていなくても、昨日までの連続記録は維持されているとみなす）
  */
-function braincare_calc_streak(PDO $pdo, int $userId): int
+function braincare_calc_streak(array $dates): int
 {
-    $stmt = $pdo->prepare(
-        'SELECT DISTINCT DATE(created_at) AS d FROM learning_history WHERE user_id = :uid ORDER BY d DESC LIMIT 400'
-    );
-    $stmt->execute(['uid' => $userId]);
-    $dates = array_column($stmt->fetchAll(), 'd');
     if (empty($dates)) {
         return 0;
     }

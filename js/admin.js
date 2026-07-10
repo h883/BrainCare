@@ -110,6 +110,7 @@
         if (tab === 'history') loadHistory();
         if (tab === 'battles') loadBattles();
         if (tab === 'ranking') loadRanking();
+        if (tab === 'messages') loadMessagesTab();
     }
 
     // ------- 概要・統計 -------
@@ -315,7 +316,48 @@
         showTabPanel('users');
     });
 
+    // ------- プレイカレンダー -------
+    const userDetailCalendarState = (() => {
+        const now = new Date();
+        return { year: now.getFullYear(), month: now.getMonth(), playDates: [] };
+    })();
+
+    function renderUserDetailCalendar() {
+        const playDates = new Set(userDetailCalendarState.playDates);
+        const { year, month } = userDetailCalendarState;
+        document.getElementById('user-detail-cal-label').textContent = `${year}年${month + 1}月`;
+
+        const firstWeekday = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const todayStr = new Date().toISOString().slice(0, 10);
+
+        let html = '<div class="calendar-weekdays">' + ['日', '月', '火', '水', '木', '金', '土'].map((d) => `<span>${d}</span>`).join('') + '</div>';
+        html += '<div class="calendar-days">';
+        for (let i = 0; i < firstWeekday; i++) html += '<span></span>';
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const cls = ['cal-day', playDates.has(dateStr) ? 'played' : '', dateStr === todayStr ? 'today' : ''].join(' ').trim();
+            html += `<span class="${cls}">${day}</span>`;
+        }
+        html += '</div>';
+        document.getElementById('user-detail-calendar').innerHTML = html;
+    }
+
+    document.getElementById('user-detail-cal-prev').addEventListener('click', () => {
+        userDetailCalendarState.month--;
+        if (userDetailCalendarState.month < 0) { userDetailCalendarState.month = 11; userDetailCalendarState.year--; }
+        renderUserDetailCalendar();
+    });
+    document.getElementById('user-detail-cal-next').addEventListener('click', () => {
+        userDetailCalendarState.month++;
+        if (userDetailCalendarState.month > 11) { userDetailCalendarState.month = 0; userDetailCalendarState.year++; }
+        renderUserDetailCalendar();
+    });
+
+    let currentUserDetailId = null;
+
     async function loadUserDetail(userId) {
+        currentUserDetailId = userId;
         showTabPanel('user_detail');
         const tiles = document.getElementById('user-detail-stat-tiles');
         const tbody = document.querySelector('#user-detail-history-table tbody');
@@ -358,6 +400,12 @@
             document.getElementById('user-detail-chart'),
             data.by_game_type
         );
+
+        const now = new Date();
+        userDetailCalendarState.year = now.getFullYear();
+        userDetailCalendarState.month = now.getMonth();
+        userDetailCalendarState.playDates = data.play_dates;
+        renderUserDetailCalendar();
 
         tbody.innerHTML = data.history.map((h) => `
             <tr>
@@ -449,6 +497,73 @@
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
         }[c]));
     }
+
+    // ------- メッセージ送信 -------
+    async function loadMessagesTab() {
+        const select = document.getElementById('msg-target-select');
+        const data = await apiGet('users');
+        select.innerHTML = '<option value="">全員へ一斉送信</option>' + data.users
+            .filter((u) => u.role === 'user')
+            .map((u) => `<option value="${u.id}">${escapeHtml(u.name)}さんへ</option>`)
+            .join('');
+        loadSentMessages();
+    }
+
+    async function loadSentMessages() {
+        const data = await apiGet('sent_messages');
+        const tbody = document.querySelector('#messages-table tbody');
+        tbody.innerHTML = data.messages.map((m) => `
+            <tr>
+                <td>${m.created_at}</td>
+                <td>${m.user_id ? escapeHtml(m.target_name) + 'さん' : '全員'}</td>
+                <td>${escapeHtml(m.sender_name)}</td>
+                <td>${escapeHtml(m.body)}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="4" class="hint-text">まだメッセージがありません</td></tr>';
+    }
+
+    document.getElementById('btn-send-message').addEventListener('click', async () => {
+        const userId = document.getElementById('msg-target-select').value;
+        const text = document.getElementById('msg-body-input').value.trim();
+        const errorEl = document.getElementById('msg-error');
+        const successEl = document.getElementById('msg-success');
+        errorEl.style.display = 'none';
+        successEl.style.display = 'none';
+
+        const { ok, body } = await apiPost('send_message', { user_id: userId, body: text });
+        if (!ok) {
+            errorEl.textContent = body.error || '送信に失敗しました';
+            errorEl.style.display = 'block';
+            return;
+        }
+        successEl.style.display = 'block';
+        document.getElementById('msg-body-input').value = '';
+        loadSentMessages();
+    });
+
+    // ------- CSVダウンロード -------
+    async function downloadHistoryCsv(userId) {
+        const qs = userId ? `&user_id=${encodeURIComponent(userId)}` : '';
+        const res = await fetch(`php/admin.php?action=export_history_csv${qs}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+            alert('CSVの取得に失敗しました');
+            return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'learning_history.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('btn-export-history-csv').addEventListener('click', () => downloadHistoryCsv(null));
+    document.getElementById('btn-export-user-csv').addEventListener('click', () => downloadHistoryCsv(currentUserDetailId));
 
     // ------- 初期化 -------
     if (token) {

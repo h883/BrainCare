@@ -31,6 +31,11 @@
         <ul id="menu-goal-list" style="list-style:none;padding:0;margin:0;display:grid;gap:8px;font-size:1.1rem;"></ul>
     </div>
 
+    <div class="card" id="menu-announcements-card" style="margin-bottom:24px;display:none;">
+        <p class="title" style="font-size:1.2rem;">📣 お知らせ</p>
+        <ul id="menu-announcements-list" style="list-style:none;padding:0;margin:0;display:grid;gap:10px;font-size:1.05rem;"></ul>
+    </div>
+
     <p class="subtitle">遊び方を選んでください</p>
 
     <div class="choice-list">
@@ -74,6 +79,16 @@
 
     <p class="title" style="font-size:1.1rem;">苦手分野（レーダーチャート）</p>
     <canvas id="mypage-chart-game-type" width="440" height="420" style="max-width:100%;display:block;margin:0 auto;"></canvas>
+
+    <p class="title" style="font-size:1.1rem;margin-top:24px;">プレイカレンダー</p>
+    <div class="card" style="max-width:420px;margin:0 auto;">
+        <div class="calendar-nav">
+            <button id="mypage-cal-prev" class="btn btn-outline">←</button>
+            <span class="calendar-label" id="mypage-cal-label"></span>
+            <button id="mypage-cal-next" class="btn btn-outline">→</button>
+        </div>
+        <div id="mypage-calendar"></div>
+    </div>
 
     <p class="title" style="font-size:1.1rem;margin-top:24px;">最近のプレイ履歴</p>
     <div style="overflow-x:auto;">

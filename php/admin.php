@@ -34,8 +34,111 @@ switch ($action) {
     case 'user_summary':
         admin_action_user_summary($pdo);
         break;
+    case 'send_message':
+        admin_action_send_message($pdo, $currentAdmin);
+        break;
+    case 'sent_messages':
+        admin_action_sent_messages($pdo);
+        break;
+    case 'export_history_csv':
+        admin_action_export_history_csv($pdo);
+        break;
     default:
         braincare_json_response(['error' => '不明なactionです'], 400);
+}
+
+function admin_action_send_message(PDO $pdo, array $currentAdmin): never
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        braincare_json_response(['error' => 'POSTメソッドのみ許可されています'], 405);
+    }
+
+    $raw = file_get_contents('php://input');
+    $body = json_decode($raw, true);
+    if (!is_array($body)) {
+        $body = $_POST;
+    }
+
+    $userId = $body['user_id'] ?? null;
+    $text = trim((string) ($body['body'] ?? ''));
+
+    if ($text === '' || mb_strlen($text) > 500) {
+        braincare_json_response(['error' => 'メッセージは1〜500文字で入力してください'], 400);
+    }
+
+    $targetUserId = null;
+    if ($userId !== null && $userId !== '') {
+        $targetUserId = (int) $userId;
+        $check = $pdo->prepare('SELECT id FROM users WHERE id = :id LIMIT 1');
+        $check->execute(['id' => $targetUserId]);
+        if ($check->fetch() === false) {
+            braincare_json_response(['error' => '宛先の利用者が見つかりません'], 404);
+        }
+    }
+
+    $stmt = $pdo->prepare(
+        'INSERT INTO messages (user_id, body, created_by) VALUES (:user_id, :body, :created_by)'
+    );
+    $stmt->execute([
+        'user_id' => $targetUserId,
+        'body' => $text,
+        'created_by' => $currentAdmin['id'],
+    ]);
+
+    braincare_json_response(['id' => (int) $pdo->lastInsertId()], 201);
+}
+
+function admin_action_sent_messages(PDO $pdo): never
+{
+    $stmt = $pdo->query(
+        'SELECT m.id, m.body, m.created_at, m.user_id, u.name AS target_name, s.name AS sender_name
+         FROM messages m
+         LEFT JOIN users u ON u.id = m.user_id
+         INNER JOIN users s ON s.id = m.created_by
+         ORDER BY m.created_at DESC
+         LIMIT 100'
+    );
+    braincare_json_response(['messages' => $stmt->fetchAll()]);
+}
+
+function admin_action_export_history_csv(PDO $pdo): never
+{
+    $userId = $_GET['user_id'] ?? null;
+    $sql = "SELECT h.created_at, u.name AS user_name, h.game_type, h.source, h.score, h.correct, h.total_rounds, h.play_time
+            FROM learning_history h
+            INNER JOIN users u ON u.id = h.user_id";
+    $params = [];
+    if ($userId !== null && $userId !== '') {
+        $sql .= ' WHERE h.user_id = :user_id';
+        $params['user_id'] = (int) $userId;
+    }
+    $sql .= ' ORDER BY h.created_at DESC';
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll();
+
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="learning_history.csv"');
+
+    $out = fopen('php://output', 'w');
+    fwrite($out, "\xEF\xBB\xBF"); // ExcelでのUTF-8文字化け対策のBOM
+    fputcsv($out, ['日時', '利用者名', 'ゲーム種別', '種別', 'スコア', '正解数', '出題数', 'プレイ時間(秒)']);
+    $sourceLabels = ['solo' => 'ソロ', 'test' => '認知機能テスト', 'battle' => '対戦'];
+    foreach ($rows as $row) {
+        fputcsv($out, [
+            $row['created_at'],
+            $row['user_name'],
+            $row['game_type'],
+            $sourceLabels[$row['source']] ?? $row['source'],
+            $row['score'],
+            $row['correct'],
+            $row['total_rounds'],
+            $row['play_time'],
+        ]);
+    }
+    fclose($out);
+    exit;
 }
 
 function admin_action_delete_user(PDO $pdo, array $currentAdmin): never

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BrainCare メイン画面</title>
+<!-- WebSocketサーバのURLを環境に合わせて変更する -->
+<meta name="braincare-ws-url" content="ws://localhost:8080">
+<link rel="stylesheet" href="css/style.css">
+<style>
+    body { font-size: 26px; }
+    #idle-ranking { margin-top: 40px; }
+    #idle-ranking table.data-table { max-width: 640px; margin: 0 auto; }
+</style>
+</head>
+<body>
+
+<div class="screen">
+    <div id="idle-view" style="text-align:center;margin:auto;">
+        <p class="title" style="font-size:3rem;">BrainCare</p>
+        <p class="subtitle" style="font-size:1.6rem;">スマートフォンでログインして、ゲームを始めてください</p>
+        <p class="hint-text" id="idle-screen-label"></p>
+
+        <div id="host-select-view">
+            <p class="title" style="font-size:1.4rem;">みんなで遊ぶゲームを選ぶ</p>
+            <div class="choice-list" id="host-game-list" style="max-width:520px;margin:0 auto;"></div>
+        </div>
+
+        <div id="host-waiting-view" style="display:none;">
+            <p class="title" style="font-size:1.6rem;">参加コード</p>
+            <p class="main-question" id="host-code-label" style="font-size:4rem;margin:16px 0;"></p>
+            <p class="subtitle" id="host-game-label"></p>
+            <p class="subtitle">スマートフォンの「みんなで遊ぶ」からこのコードを入力してください</p>
+            <p class="hint-text" id="host-joined-label"></p>
+        </div>
+
+        <div id="idle-ranking">
+            <p class="title" style="font-size:1.6rem;">ランキング</p>
+            <table class="data-table">
+                <thead><tr><th>順位</th><th>お名前</th><th>ポイント</th><th>勝敗</th></tr></thead>
+                <tbody id="idle-ranking-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="game-view" style="display:none;flex:1;flex-direction:column;">
+        <div class="main-score-bar">
+            <span id="main-round-label"></span>
+            <span id="main-game-label"></span>
+        </div>
+
+        <div id="main-battle-panel" class="battle-score-panel" style="display:none;"></div>
+
+        <div id="main-question-area" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;"></div>
+
+        <div id="main-result-banner" class="result-banner" style="display:none;"></div>
+        <div class="main-timer" id="main-timer-label"></div>
+    </div>
+
+    <div id="gameover-view" style="display:none;text-align:center;margin:auto;">
+        <p class="title" style="font-size:2.6rem;">結果発表</p>
+        <p class="subtitle" id="gameover-text" style="font-size:1.8rem;"></p>
+    </div>
+</div>
+
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>BrainCare コントローラー</title>
+<!-- WebSocketサーバのURLを環境に合わせて変更する -->
+<meta name="braincare-ws-url" content="ws://localhost:8080">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="screen-login" class="screen">
+    <div class="card" style="max-width:480px;margin:auto;width:100%;">
+        <p class="title">BrainCare</p>
+        <p class="subtitle">あなたのお名前をタップしてください</p>
+        <div class="choice-list" id="name-list"></div>
+        <p id="login-error" class="error-text" style="display:none;"></p>
+        <details style="margin-top:24px;">
+            <summary class="hint-text">画面番号の設定（テレビが複数ある場合のみ）</summary>
+            <input id="login-screen" class="input-field" type="text" value="1" style="margin-top:8px;">
+        </details>
+    </div>
+</div>
+
+<div id="screen-menu" class="screen" style="display:none;">
+    <p class="title">ようこそ、<span id="menu-user-name"></span>さん</p>
+
+    <div class="card" style="margin-bottom:24px;">
+        <p class="title" style="font-size:1.2rem;">今日の目標　<span id="menu-goal-percent"></span></p>
+        <ul id="menu-goal-list" style="list-style:none;padding:0;margin:0;display:grid;gap:8px;font-size:1.1rem;"></ul>
+    </div>
+
+    <p class="subtitle">遊び方を選んでください</p>
+
+    <div class="choice-list">
+        <button id="btn-goto-solo" class="btn">一人で遊ぶ</button>
+        <button id="btn-goto-join" class="btn">みんなで遊ぶ（参加コード入力）</button>
+        <button id="btn-start-test" class="btn" style="background:var(--color-info);">認知機能テストを受ける</button>
+        <button id="btn-weak-mode" class="btn" style="background:var(--color-accent);">苦手克服モード</button>
+    </div>
+
+    <button id="btn-open-mypage" class="btn btn-outline" style="margin-top:32px;">自分の記録を見る</button>
+    <button id="btn-voice-toggle" class="btn btn-outline" style="margin-top:16px;">🔊 音声案内：<span id="voice-toggle-state"></span></button>
+    <button id="btn-logout" class="btn btn-danger" style="margin-top:16px;max-width:200px;">ログアウト</button>
+</div>
+
+<div id="screen-solo-menu" class="screen" style="display:none;">
+    <p class="title">一人で遊ぶ</p>
+    <p class="subtitle">遊びたいゲームを選んでください</p>
+    <div class="choice-list" id="solo-game-list"></div>
+    <button id="btn-solo-back" class="btn btn-outline" style="margin-top:24px;">戻る</button>
+</div>
+
+<div id="screen-join" class="screen" style="display:none;">
+    <div class="card" style="max-width:420px;margin:auto;width:100%;">
+        <p class="title">みんなで遊ぶ</p>
+        <p class="subtitle">テレビに表示された参加コードを入力してください</p>
+        <div class="form-grid">
+            <input id="join-code-input" class="input-field" type="text" inputmode="numeric" placeholder="参加コード（4桁）" maxlength="4">
+            <button id="btn-do-join" class="btn">参加する</button>
+            <p id="join-error" class="error-text" style="display:none;"></p>
+        </div>
+        <button id="btn-join-back" class="btn btn-outline" style="margin-top:24px;">戻る</button>
+    </div>
+</div>
+
+<div id="screen-mypage" class="screen" style="display:none;">
+    <p class="title">自分の記録</p>
+
+    <div id="mypage-badge-list" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px;"></div>
+
+    <div class="stat-tiles" id="mypage-stat-tiles"></div>
+
+    <p class="title" style="font-size:1.1rem;">苦手分野（正答率が低い順）</p>
+    <canvas id="mypage-chart-game-type" width="600" height="200" style="max-width:100%;"></canvas>
+
+    <p class="title" style="font-size:1.1rem;margin-top:24px;">最近のプレイ履歴</p>
+    <div style="overflow-x:auto;">
+        <table class="data-table" id="mypage-history-table">
+            <thead><tr><th>日時</th><th>ゲーム種別</th><th>スコア</th><th>正解数</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <button id="btn-mypage-back" class="btn" style="margin-top:24px;">メニューへ戻る</button>
+</div>
+
+<div id="screen-waiting" class="screen" style="display:none;">
+    <div class="card" style="margin:auto;text-align:center;">
+        <p class="title" id="waiting-title">お待ちください…</p>
+        <p class="subtitle" id="waiting-detail"></p>
+        <button id="btn-cancel-waiting" class="btn btn-danger">やめる</button>
+    </div>
+</div>
+
+<div id="screen-game" class="screen" style="display:none;">
+    <div class="main-score-bar">
+        <span id="game-round-label"></span>
+        <span id="game-score-label"></span>
+    </div>
+    <div id="game-message" class="result-banner" style="display:none;"></div>
+    <div id="game-input-area" style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px;"></div>
+    <button id="btn-quit-game" class="btn btn-danger" style="margin-top:24px;">終了する</button>
+</div>
+
+<div id="screen-gameover" class="screen" style="display:none;">
+    <div class="card" style="margin:auto;text-align:center;max-width:480px;">
+        <p class="title">おつかれさまでした！</p>
+        <p class="subtitle" id="gameover-summary"></p>
+        <button id="btn-view-test-result" class="btn" style="display:none;margin-bottom:12px;">苦手分野を見る</button>
+        <button id="btn-back-to-menu" class="btn btn-outline">メニューへ戻る</button>
+    </div>
+</div>
+
+<script src="js/konto.js"></script>
+</body>
+</html>

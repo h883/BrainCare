@@ -1,0 +1,19 @@
+{
+    "name": "braincare/app",
+    "description": "BrainCare - 高齢者向け認知機能トレーニングアプリ",
+    "type": "project",
+    "require": {
+        "php": ">=8.1",
+        "cboden/ratchet": "^0.4.4",
+        "react/event-loop": "^1.2",
+        "react/socket": "^1.11"
+    },
+    "autoload": {
+        "psr-4": {
+            "BrainCare\\": "ws/"
+        }
+    },
+    "require-dev": {
+        "ratchet/pawl": "^0.3"
+    }
+}

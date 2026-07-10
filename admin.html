@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BrainCare 管理画面</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="screen-login" class="screen">
+    <div class="card" style="max-width:420px;margin:auto;width:100%;">
+        <p class="title">BrainCare 管理画面ログイン</p>
+        <div class="form-grid">
+            <input id="login-name" class="input-field" type="text" placeholder="管理者名" autocomplete="username">
+            <input id="login-password" class="input-field" type="password" placeholder="パスワード" autocomplete="current-password">
+            <p id="login-error" class="error-text" style="display:none;"></p>
+            <button id="btn-login" class="btn">ログイン</button>
+        </div>
+    </div>
+</div>
+
+<div id="screen-admin" class="admin-layout" style="display:none;">
+    <div class="admin-nav">
+        <p class="title" style="font-size:1.2rem;">BrainCare 管理画面</p>
+        <button data-tab="stats" class="active">概要・統計</button>
+        <button data-tab="users">利用者一覧</button>
+        <button data-tab="create_user">利用者登録</button>
+        <button data-tab="history">学習履歴</button>
+        <button data-tab="battles">対戦履歴</button>
+        <button data-tab="ranking">ランキング</button>
+        <button id="btn-logout" class="btn btn-danger" style="margin-top:24px;">ログアウト</button>
+    </div>
+    <div class="admin-main">
+        <div id="tab-stats" class="tab-panel">
+            <div class="stat-tiles" id="stat-tiles"></div>
+            <p class="title" style="font-size:1.1rem;">ゲーム種別ごとのプレイ回数</p>
+            <canvas id="chart-game-type" width="640" height="220" style="max-width:100%;"></canvas>
+            <p class="title" style="font-size:1.1rem;margin-top:24px;">直近14日間のプレイ回数</p>
+            <canvas id="chart-by-day" width="640" height="220" style="max-width:100%;"></canvas>
+        </div>
+
+        <div id="tab-users" class="tab-panel" style="display:none;">
+            <p class="title" style="font-size:1.3rem;">利用者一覧</p>
+            <div style="overflow-x:auto;">
+                <table class="data-table" id="users-table">
+                    <thead><tr><th>利用者番号</th><th>名前</th><th>生年月日</th><th>権限</th><th>登録日</th><th></th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-user_detail" class="tab-panel" style="display:none;">
+            <button id="btn-user-detail-back" class="btn btn-outline" style="margin-bottom:16px;max-width:160px;">← 利用者一覧へ</button>
+            <p class="title" style="font-size:1.3rem;" id="user-detail-name"></p>
+
+            <div id="user-detail-badge-list" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;"></div>
+
+            <p class="title" style="font-size:1.1rem;">今日の目標　<span id="user-detail-goal-percent"></span></p>
+            <ul id="user-detail-goal-list" style="list-style:none;padding:0;margin:0 0 24px;display:grid;gap:8px;font-size:1rem;"></ul>
+
+            <div class="stat-tiles" id="user-detail-stat-tiles"></div>
+
+            <p class="title" style="font-size:1.1rem;">苦手分野（正答率が低い順）</p>
+            <canvas id="user-detail-chart" width="640" height="220" style="max-width:100%;"></canvas>
+
+            <p class="title" style="font-size:1.1rem;margin-top:24px;">最近のプレイ履歴</p>
+            <div style="overflow-x:auto;">
+                <table class="data-table" id="user-detail-history-table">
+                    <thead><tr><th>日時</th><th>ゲーム種別</th><th>スコア</th><th>正解数</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-create_user" class="tab-panel" style="display:none;">
+            <p class="title" style="font-size:1.3rem;">利用者登録</p>
+            <div class="form-grid">
+                <select id="cu-role" class="input-field">
+                    <option value="user">利用者（名前選択のみでログイン、パスワード不要）</option>
+                    <option value="admin">管理者（パスワードでログイン）</option>
+                </select>
+                <input id="cu-name" class="input-field" type="text" placeholder="お名前">
+                <input id="cu-password" class="input-field" type="password" placeholder="パスワード（管理者のみ・4文字以上）" style="display:none;">
+                <input id="cu-birthday" class="input-field" type="date" placeholder="生年月日">
+                <p id="cu-error" class="error-text" style="display:none;"></p>
+                <p id="cu-success" style="display:none;color:#16855a;font-weight:700;">登録しました</p>
+                <button id="btn-create-user" class="btn">登録する</button>
+            </div>
+        </div>
+
+        <div id="tab-history" class="tab-panel" style="display:none;">
+            <p class="title" style="font-size:1.3rem;">学習履歴（ソロプレイ）</p>
+            <div style="overflow-x:auto;">
+                <table class="data-table" id="history-table">
+                    <thead><tr><th>日時</th><th>利用者</th><th>ゲーム種別</th><th>スコア</th><th>正解数</th><th>プレイ時間(秒)</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-battles" class="tab-panel" style="display:none;">
+            <p class="title" style="font-size:1.3rem;">対戦履歴</p>
+            <div style="overflow-x:auto;">
+                <table class="data-table" id="battles-table">
+                    <thead><tr><th>日時</th><th>対戦者1</th><th>対戦者2</th><th>スコア</th><th>勝者</th><th>ゲーム種別</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-ranking" class="tab-panel" style="display:none;">
+            <p class="title" style="font-size:1.3rem;">ランキング</p>
+            <div style="overflow-x:auto;">
+                <table class="data-table" id="ranking-table">
+                    <thead><tr><th>順位</th><th>お名前</th><th>ポイント</th><th>勝</th><th>敗</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="js/admin.js"></script>
+</body>
+</html>

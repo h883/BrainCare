@@ -11,12 +11,16 @@ use Ratchet\ConnectionInterface;
 use React\EventLoop\LoopInterface;
 use React\EventLoop\TimerInterface;
 
-/** ソロプレイ（一人プレイ）の進行を screen_id 単位で管理する */
+/**
+ * ソロプレイ・認知機能テストの進行をkonto接続単位で管理する。
+ * テレビは「みんなで遊ぶ」対戦専用のため、ここでは一切ブロードキャストしない
+ * （スマートフォンの画面だけで完結する）。
+ */
 class SessionManager
 {
     private const RESULT_PAUSE_MS = 1800;
 
-    /** @var array<string, array> screen_id => session state */
+    /** @var array<int, array> conn->resourceId => session state */
     private array $sessions = [];
 
     public function __construct(
@@ -26,9 +30,10 @@ class SessionManager
     ) {
     }
 
-    public function start(ConnectionInterface $kontoConn, array $user, string $screenId, string $gameType): void
+    public function start(ConnectionInterface $kontoConn, array $user, string $gameType): void
     {
-        $this->cancelTimer($screenId);
+        $connId = $kontoConn->resourceId;
+        $this->cancelTimer($connId);
 
         try {
             $engine = GameFactory::create($gameType);
@@ -37,7 +42,7 @@ class SessionManager
             return;
         }
 
-        $this->sessions[$screenId] = [
+        $this->sessions[$connId] = [
             'engine' => $engine,
             'mode' => $engine instanceof CognitiveTestGame ? 'test' : 'solo',
             'user' => $user,
@@ -48,30 +53,30 @@ class SessionManager
             'timer' => null,
         ];
 
-        $this->askNextQuestion($screenId);
+        $this->askNextQuestion($connId);
     }
 
-    public function handleAnswer(string $screenId, array $payload): void
+    public function handleAnswer(ConnectionInterface $conn, array $payload): void
     {
-        $session = $this->sessions[$screenId] ?? null;
-        if ($session === null) {
+        $connId = $conn->resourceId;
+        if (!isset($this->sessions[$connId])) {
             return;
         }
-        $this->resolveRound($screenId, $payload);
+        $this->resolveRound($connId, $payload);
     }
 
-    public function handleDisconnect(ConnectionInterface $conn, string $screenId): void
+    public function handleDisconnect(ConnectionInterface $conn): void
     {
-        $session = $this->sessions[$screenId] ?? null;
-        if ($session !== null && $session['kontoConn'] === $conn) {
-            $this->cancelTimer($screenId);
-            unset($this->sessions[$screenId]);
+        $connId = $conn->resourceId;
+        if (isset($this->sessions[$connId])) {
+            $this->cancelTimer($connId);
+            unset($this->sessions[$connId]);
         }
     }
 
-    private function askNextQuestion(string $screenId): void
+    private function askNextQuestion(int $connId): void
     {
-        $session = $this->sessions[$screenId] ?? null;
+        $session = $this->sessions[$connId] ?? null;
         if ($session === null) {
             return;
         }
@@ -79,38 +84,37 @@ class SessionManager
         $engine = $session['engine'];
 
         if ($engine->isFinished()) {
-            $this->finish($screenId);
+            $this->finish($connId);
             return;
         }
 
         $q = $engine->nextQuestion();
         $base = ['type' => 'question', 'game_type' => $engine->type(), 'mode' => $session['mode'], 'time_limit_ms' => $engine->timeLimitMs()];
 
-        $this->cm->sendMainScreen($screenId, $base + $q['main']);
         $this->cm->send($session['kontoConn'], $base + $q['konto']);
 
-        $this->sessions[$screenId]['timer'] = $this->loop->addTimer($engine->timeLimitMs() / 1000, function () use ($screenId) {
-            $this->resolveRound($screenId, []);
+        $this->sessions[$connId]['timer'] = $this->loop->addTimer($engine->timeLimitMs() / 1000, function () use ($connId) {
+            $this->resolveRound($connId, []);
         });
     }
 
-    private function resolveRound(string $screenId, array $payload): void
+    private function resolveRound(int $connId, array $payload): void
     {
-        $session = $this->sessions[$screenId] ?? null;
+        $session = $this->sessions[$connId] ?? null;
         if ($session === null) {
             return;
         }
-        $this->cancelTimer($screenId);
+        $this->cancelTimer($connId);
 
         /** @var GameInterface $engine */
         $engine = $session['engine'];
         $result = $engine->checkAnswer($payload);
 
-        $this->sessions[$screenId]['score'] += $result['points'];
+        $this->sessions[$connId]['score'] += $result['points'];
         if ($result['correct']) {
-            $this->sessions[$screenId]['correct']++;
+            $this->sessions[$connId]['correct']++;
         }
-        $session = $this->sessions[$screenId];
+        $session = $this->sessions[$connId];
 
         $message = [
             'type' => 'result',
@@ -121,17 +125,16 @@ class SessionManager
             'round' => $engine->currentRound(),
             'total_rounds' => $engine->totalRounds(),
         ];
-        $this->cm->sendMainScreen($screenId, $message);
         $this->cm->send($session['kontoConn'], $message);
 
-        $this->sessions[$screenId]['timer'] = $this->loop->addTimer(self::RESULT_PAUSE_MS / 1000, function () use ($screenId) {
-            $this->askNextQuestion($screenId);
+        $this->sessions[$connId]['timer'] = $this->loop->addTimer(self::RESULT_PAUSE_MS / 1000, function () use ($connId) {
+            $this->askNextQuestion($connId);
         });
     }
 
-    private function finish(string $screenId): void
+    private function finish(int $connId): void
     {
-        $session = $this->sessions[$screenId] ?? null;
+        $session = $this->sessions[$connId] ?? null;
         if ($session === null) {
             return;
         }
@@ -179,20 +182,19 @@ class SessionManager
             'correct' => $session['correct'],
             'total_rounds' => $engine->totalRounds(),
         ];
-        $this->cm->sendMainScreen($screenId, $message);
         $this->cm->send($session['kontoConn'], $message);
 
-        unset($this->sessions[$screenId]);
+        unset($this->sessions[$connId]);
     }
 
-    private function cancelTimer(string $screenId): void
+    private function cancelTimer(int $connId): void
     {
-        $timer = $this->sessions[$screenId]['timer'] ?? null;
+        $timer = $this->sessions[$connId]['timer'] ?? null;
         if ($timer instanceof TimerInterface) {
             $this->loop->cancelTimer($timer);
         }
-        if (isset($this->sessions[$screenId])) {
-            $this->sessions[$screenId]['timer'] = null;
+        if (isset($this->sessions[$connId])) {
+            $this->sessions[$connId]['timer'] = null;
         }
     }
 }

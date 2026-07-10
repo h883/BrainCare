@@ -108,16 +108,16 @@
         }, 250);
     }
 
+    // main.htmlは「みんなで遊ぶ」対戦専用の表示画面（ソロプレイ・認知機能テストはスマホのみで完結する）。
     function renderQuestion(data) {
         showView('game');
         document.getElementById('main-result-banner').style.display = 'none';
-        const roundLabelPrefix = data.mode === 'test' ? '認知機能テスト ' : '';
-        document.getElementById('main-round-label').textContent = `${roundLabelPrefix}${data.round} / ${data.total_rounds} 問目`;
+        document.getElementById('main-round-label').textContent = `${data.round} / ${data.total_rounds} 問目`;
         document.getElementById('main-game-label').textContent = GAME_LABELS[data.game_type] || '';
         startCountdown(data.time_limit_ms);
 
         const battlePanel = document.getElementById('main-battle-panel');
-        if (data.mode === 'battle' && data.scores) {
+        if (data.scores) {
             battlePanel.style.display = 'flex';
             renderBattlePanel(data.scores);
         } else {
@@ -224,34 +224,15 @@
         document.getElementById('main-timer-label').textContent = '';
         const banner = document.getElementById('main-result-banner');
         banner.style.display = 'block';
-
-        if (data.mode === 'battle' && data.scores) {
-            renderBattlePanel(data.scores);
-            banner.className = 'result-banner';
-            banner.textContent = '正解発表！';
-        } else {
-            banner.className = 'result-banner ' + (data.correct ? 'correct' : 'incorrect');
-            banner.textContent = data.correct ? '正解！' : `不正解（正解: ${formatAnswer(data.correct_answer)}）`;
-        }
-    }
-
-    function formatAnswer(answer) {
-        if (Array.isArray(answer)) return answer.join(', ');
-        if (answer && typeof answer === 'object') return JSON.stringify(answer);
-        return String(answer);
+        renderBattlePanel(data.scores);
+        banner.className = 'result-banner';
+        banner.textContent = '正解発表！';
     }
 
     function renderGameOver(data) {
         showView('gameover');
-        let text;
-        if (data.mode === 'solo') {
-            text = `スコア ${data.score} 点（正解 ${data.correct} / ${data.total_rounds} 問）`;
-        } else if (data.mode === 'test') {
-            text = `認知機能テスト終了。スコア ${data.score} 点（正解 ${data.correct} / ${data.total_rounds} 問）。詳しい結果はスマートフォンでご確認ください。`;
-        } else {
-            const scoreText = (data.scores || []).map((s) => `${s.name}: ${s.score}点`).join(' 対 ');
-            text = data.winner_name ? `勝者: ${data.winner_name}さん！（${scoreText}）` : `引き分け（${scoreText}）`;
-        }
+        const scoreText = (data.scores || []).map((s) => `${s.name}: ${s.score}点`).join(' 対 ');
+        const text = data.winner_name ? `勝者: ${data.winner_name}さん！（${scoreText}）` : `引き分け（${scoreText}）`;
         document.getElementById('gameover-text').textContent = text;
 
         setTimeout(() => {

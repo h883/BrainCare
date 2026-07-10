@@ -526,20 +526,45 @@
     });
 
     // ------- ゲーム進行 -------
+    let gameCountdownTimer = null;
+
+    function startGameCountdown(ms) {
+        clearInterval(gameCountdownTimer);
+        const label = document.getElementById('game-timer-label');
+        if (!label) return;
+        if (!ms) {
+            label.textContent = '';
+            return;
+        }
+        const end = Date.now() + ms;
+        gameCountdownTimer = setInterval(() => {
+            const remain = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+            label.textContent = `残り時間: ${remain}秒`;
+            if (remain <= 0) clearInterval(gameCountdownTimer);
+        }, 250);
+    }
+
     function renderQuestion(data) {
         showScreen('game');
         document.getElementById('game-message').style.display = 'none';
         const roundLabelPrefix = data.mode === 'test' ? '認知機能テスト ' : '';
         document.getElementById('game-round-label').textContent = `${roundLabelPrefix}${data.round} / ${data.total_rounds} 問目`;
         document.getElementById('game-score-label').textContent = data.mode === 'battle' ? '対戦中' : (data.mode === 'test' ? 'テスト中' : '');
+        startGameCountdown(data.time_limit_ms);
 
         const area = document.getElementById('game-input-area');
         area.innerHTML = '';
         answerBuffer = [];
 
         if (data.game_type === 'memory' && data.memorize_ms) {
-            area.innerHTML = `<p class="main-question" style="font-size:1.6rem;">テレビをよく見て覚えてください</p>`;
-            speak('テレビをよく見て覚えてください');
+            if (data.sequence) {
+                // ソロ/テスト: テレビを使わずスマホに直接表示する
+                renderMemorySequencePreview(data, area);
+            } else {
+                // 対戦: 公平性のためテレビの共有表示だけを見てもらう
+                area.innerHTML = `<p class="main-question" style="font-size:1.6rem;">テレビをよく見て覚えてください</p>`;
+                speak('テレビをよく見て覚えてください');
+            }
             setTimeout(() => {
                 renderInputWidget(data, area);
                 speak('覚えた順に入力してください');
@@ -549,6 +574,22 @@
 
         speakQuestionText(data);
         renderInputWidget(data, area);
+    }
+
+    function renderMemorySequencePreview(data, area) {
+        const label = document.createElement('p');
+        label.className = 'main-question';
+        label.style.fontSize = '2rem';
+        if (data.mode === 'colors') {
+            label.innerHTML = data.sequence.map((c) => `<span style="display:inline-block;width:48px;height:48px;border-radius:10px;background:${colorHex(c)};margin:6px;"></span>`).join('');
+        } else {
+            label.textContent = data.sequence.join('  ');
+        }
+        area.appendChild(label);
+        const hint = document.createElement('p');
+        hint.className = 'hint-text';
+        hint.textContent = 'よく覚えてください';
+        area.appendChild(hint);
     }
 
     function speakQuestionText(data) {
@@ -823,6 +864,9 @@
     }
 
     function renderResult(data) {
+        clearInterval(gameCountdownTimer);
+        const timerLabel = document.getElementById('game-timer-label');
+        if (timerLabel) timerLabel.textContent = '';
         const el = document.getElementById('game-message');
         const mine = data.correct;
         el.style.display = 'block';

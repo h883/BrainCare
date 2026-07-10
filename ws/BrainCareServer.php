@@ -52,11 +52,8 @@ class BrainCareServer implements MessageComponentInterface
 
     public function onClose(ConnectionInterface $conn): void
     {
-        $meta = $this->cm->meta($conn);
         $this->battleManager->handleDisconnect($conn);
-        if ($meta !== null) {
-            $this->sessionManager->handleDisconnect($conn, $meta['screen_id']);
-        }
+        $this->sessionManager->handleDisconnect($conn);
         $this->cm->detach($conn);
     }
 
@@ -123,7 +120,7 @@ class BrainCareServer implements MessageComponentInterface
             return;
         }
         $gameType = (string) ($data['game_type'] ?? '');
-        $this->sessionManager->start($conn, $meta['user'], $meta['screen_id'], $gameType);
+        $this->sessionManager->start($conn, $meta['user'], $gameType);
     }
 
     private function handleHostCreateRoom(ConnectionInterface $conn, array $data): void
@@ -161,7 +158,7 @@ class BrainCareServer implements MessageComponentInterface
         if ($this->battleManager->isInBattle($conn)) {
             $this->battleManager->handleAnswer($conn, $payload);
         } else {
-            $this->sessionManager->handleAnswer($meta['screen_id'], $payload);
+            $this->sessionManager->handleAnswer($conn, $payload);
         }
     }
 }

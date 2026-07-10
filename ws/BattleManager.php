@@ -197,8 +197,14 @@ class BattleManager
         $this->cm->sendMainScreen($battle['screenId'], $base + $q['main'] + [
             'scores' => $this->scoreSummary($battleId),
         ]);
+
+        // 記憶ゲームは対戦の公平性のため、答えとなる数列をスマホへは送らずテレビの共有表示のみで見せる
+        $kontoPayload = $q['konto'];
+        if ($engine->type() === 'memory') {
+            unset($kontoPayload['sequence']);
+        }
         foreach ($battle['players'] as $p) {
-            $this->cm->send($p['conn'], $base + $q['konto']);
+            $this->cm->send($p['conn'], $base + $kontoPayload);
         }
 
         $this->battles[$battleId]['timer'] = $this->loop->addTimer($engine->timeLimitMs() / 1000, function () use ($battleId) {

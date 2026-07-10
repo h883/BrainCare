@@ -5,8 +5,10 @@ namespace BrainCare\Games;
 
 /**
  * 記憶ゲーム（数字/色を覚えて回答）
- * TVに数列/色列を一定時間表示し、その後スマホから同じ順番で入力させる。
- * 正解シーケンスはmainペイロードにのみ含め、kontoには選択肢パレットのみ送る。
+ * 数列/色列を一定時間表示し、その後同じ順番で入力させる。
+ * kontoペイロードにも正解シーケンスを含める（ソロプレイはテレビを使わずスマホ単体で完結するため）。
+ * 対戦（みんなで遊ぶ）ではテレビの共有表示だけを見て公平に競わせたいため、
+ * BattleManager側でkontoへ送る直前にsequenceを取り除く。
  */
 class MemoryGame extends AbstractGame
 {
@@ -65,6 +67,7 @@ class MemoryGame extends AbstractGame
             'total_rounds' => $this->totalRounds,
             'mode' => $this->mode,
             'length' => $length,
+            'sequence' => $this->sequence,
             'memorize_ms' => $memorizeMs,
             'input_type' => $this->mode === 'digits' ? 'numeric' : 'color_tiles',
             'palette' => $this->mode === 'colors' ? self::COLORS : null,

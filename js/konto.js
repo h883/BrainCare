@@ -635,6 +635,15 @@
 
     function renderNumericPad(data, area) {
         const isSequence = data.game_type === 'memory';
+
+        if (data.expression) {
+            const question = document.createElement('p');
+            question.className = 'main-question';
+            question.style.fontSize = '2.2rem';
+            question.textContent = `${data.expression} は？`;
+            area.appendChild(question);
+        }
+
         const display = document.createElement('p');
         display.className = 'main-question';
         display.style.fontSize = '2rem';

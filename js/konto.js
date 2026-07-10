@@ -313,6 +313,13 @@
     });
     document.getElementById('btn-mypage-back').addEventListener('click', showMenu);
 
+    document.getElementById('btn-mypage-pdf').addEventListener('click', () => {
+        const now = new Date();
+        document.getElementById('mypage-print-meta').textContent =
+            `${user?.name || ''} さん　出力日時: ${now.toLocaleString('ja-JP')}`;
+        window.print();
+    });
+
     // 正答率に応じて弱点(赤)〜得意(緑)の色を付ける
     function accuracyColor(percent) {
         if (percent < 50) return '#c94f5f';

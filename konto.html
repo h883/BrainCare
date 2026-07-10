@@ -73,6 +73,8 @@
 
 <div id="screen-mypage" class="screen" style="display:none;">
     <p class="title">自分の記録</p>
+    <p class="hint-text print-only" id="mypage-print-meta"></p>
+    <button id="btn-mypage-pdf" class="btn btn-outline no-print" style="max-width:260px;margin-bottom:16px;">📄 スコアをPDFで保存</button>
 
     <div id="mypage-badge-list" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px;"></div>
 
@@ -84,9 +86,9 @@
     <p class="title" style="font-size:1.1rem;margin-top:24px;">プレイカレンダー</p>
     <div class="card" style="max-width:420px;margin:0 auto;">
         <div class="calendar-nav">
-            <button id="mypage-cal-prev" class="btn btn-outline">←</button>
+            <button id="mypage-cal-prev" class="btn btn-outline no-print">←</button>
             <span class="calendar-label" id="mypage-cal-label"></span>
-            <button id="mypage-cal-next" class="btn btn-outline">→</button>
+            <button id="mypage-cal-next" class="btn btn-outline no-print">→</button>
         </div>
         <div id="mypage-calendar"></div>
     </div>
@@ -99,7 +101,7 @@
         </table>
     </div>
 
-    <button id="btn-mypage-back" class="btn" style="margin-top:24px;">メニューへ戻る</button>
+    <button id="btn-mypage-back" class="btn no-print" style="margin-top:24px;">メニューへ戻る</button>
 </div>
 
 <div id="screen-waiting" class="screen" style="display:none;">

@@ -27,6 +27,7 @@
         <button data-tab="stats" class="active">概要・統計</button>
         <button data-tab="users">利用者一覧</button>
         <button data-tab="create_user">利用者登録</button>
+        <button data-tab="import_users">利用者一斉登録</button>
         <button data-tab="history">学習履歴</button>
         <button data-tab="battles">対戦履歴</button>
         <button data-tab="ranking">ランキング</button>
@@ -44,18 +45,21 @@
 
         <div id="tab-users" class="tab-panel" style="display:none;">
             <p class="title" style="font-size:1.3rem;">利用者一覧</p>
+            <button id="btn-bulk-delete-users" class="btn btn-danger" style="max-width:280px;margin-bottom:16px;" disabled>選択した利用者を削除</button>
             <div style="overflow-x:auto;">
                 <table class="data-table" id="users-table">
-                    <thead><tr><th>利用者番号</th><th>名前</th><th>生年月日</th><th>権限</th><th>登録日</th><th></th><th></th><th></th></tr></thead>
+                    <thead><tr><th><input type="checkbox" id="users-select-all"></th><th>利用者番号</th><th>名前</th><th>生年月日</th><th>権限</th><th>登録日</th><th></th><th></th><th></th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
         </div>
 
         <div id="tab-user_detail" class="tab-panel" style="display:none;">
-            <button id="btn-user-detail-back" class="btn btn-outline" style="margin-bottom:16px;max-width:160px;">← 利用者一覧へ</button>
+            <button id="btn-user-detail-back" class="btn btn-outline no-print" style="margin-bottom:16px;max-width:160px;">← 利用者一覧へ</button>
             <p class="title" style="font-size:1.3rem;" id="user-detail-name"></p>
-            <button id="btn-export-user-csv" class="btn btn-outline" style="max-width:260px;margin-bottom:16px;">この利用者の履歴をCSVダウンロード</button>
+            <p class="hint-text print-only" id="user-detail-print-meta"></p>
+            <button id="btn-export-user-csv" class="btn btn-outline no-print" style="max-width:260px;margin-bottom:16px;">この利用者の履歴をCSVダウンロード</button>
+            <button id="btn-export-user-pdf" class="btn btn-outline no-print" style="max-width:260px;margin-bottom:16px;">📄 この利用者のスコアをPDFで保存</button>
 
             <div id="user-detail-badge-list" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;"></div>
 
@@ -70,9 +74,9 @@
             <p class="title" style="font-size:1.1rem;margin-top:24px;">プレイカレンダー</p>
             <div class="card" style="max-width:420px;margin:0 auto;">
                 <div class="calendar-nav">
-                    <button id="user-detail-cal-prev" class="btn btn-outline">←</button>
+                    <button id="user-detail-cal-prev" class="btn btn-outline no-print">←</button>
                     <span class="calendar-label" id="user-detail-cal-label"></span>
-                    <button id="user-detail-cal-next" class="btn btn-outline">→</button>
+                    <button id="user-detail-cal-next" class="btn btn-outline no-print">→</button>
                 </div>
                 <div id="user-detail-calendar"></div>
             </div>
@@ -116,6 +120,26 @@
                 <p id="cu-error" class="error-text" style="display:none;"></p>
                 <p id="cu-success" style="display:none;color:#16855a;font-weight:700;">登録しました</p>
                 <button id="btn-create-user" class="btn">登録する</button>
+            </div>
+        </div>
+
+        <div id="tab-import_users" class="tab-panel" style="display:none;">
+            <p class="title" style="font-size:1.3rem;">利用者一斉登録（CSV）</p>
+            <p class="hint-text" style="margin-bottom:16px;">1行に1名、「名前, 生年月日, 権限」の順で入力したCSVファイルを取り込みます。生年月日（YYYY-MM-DD）と権限は省略できます（省略時は利用者として登録されます）。管理者アカウントはパスワード設定が必要なため一括登録できません。「利用者登録」から個別に登録してください。</p>
+            <button id="btn-download-import-sample" class="btn btn-outline" style="max-width:280px;margin-bottom:24px;">サンプルCSVをダウンロード</button>
+            <div class="form-grid">
+                <input id="import-csv-file" type="file" accept=".csv,text/csv" class="input-field">
+                <p id="import-error" class="error-text" style="display:none;"></p>
+                <button id="btn-import-users" class="btn">取り込む</button>
+            </div>
+            <div id="import-result" style="margin-top:24px;display:none;">
+                <p class="title" style="font-size:1.1rem;" id="import-result-title"></p>
+                <div style="overflow-x:auto;">
+                    <table class="data-table" id="import-result-table">
+                        <thead><tr><th>行</th><th>名前</th><th>結果</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -163,7 +187,7 @@
             <p class="title" style="font-size:1.1rem;margin-top:32px;">送信済みメッセージ</p>
             <div style="overflow-x:auto;">
                 <table class="data-table" id="messages-table">
-                    <thead><tr><th>日時</th><th>宛先</th><th>送信者</th><th>内容</th></tr></thead>
+                    <thead><tr><th>日時</th><th>宛先</th><th>送信者</th><th>内容</th><th></th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>

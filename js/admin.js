@@ -121,6 +121,7 @@
         if (tab === 'battles') loadBattles();
         if (tab === 'ranking') loadRanking();
         if (tab === 'messages') loadMessagesTab();
+        if (tab === 'import_users') resetImportUsersTab();
     }
 
     // ------- 概要・統計 -------
@@ -286,6 +287,7 @@
         const tbody = document.querySelector('#users-table tbody');
         tbody.innerHTML = data.users.map((u) => `
             <tr>
+                <td><input type="checkbox" class="user-select-checkbox" value="${u.id}" data-user-name="${escapeHtml(u.name)}"></td>
                 <td>${u.id}</td>
                 <td>${escapeHtml(u.name)}</td>
                 <td>${u.birthday || '-'}</td>
@@ -296,7 +298,52 @@
                 <td><button class="btn btn-danger" data-delete-user="${u.id}" data-user-name="${escapeHtml(u.name)}" style="padding:8px 14px;font-size:0.95rem;min-height:auto;">削除</button></td>
             </tr>
         `).join('');
+        document.getElementById('users-select-all').checked = false;
+        updateBulkDeleteButtonState();
     }
+
+    function updateBulkDeleteButtonState() {
+        const selected = document.querySelectorAll('#users-table .user-select-checkbox:checked').length;
+        const bulkBtn = document.getElementById('btn-bulk-delete-users');
+        bulkBtn.disabled = selected === 0;
+        bulkBtn.textContent = selected > 0 ? `選択した利用者を削除（${selected}名）` : '選択した利用者を削除';
+    }
+
+    document.getElementById('users-select-all').addEventListener('change', (ev) => {
+        document.querySelectorAll('#users-table .user-select-checkbox').forEach((cb) => {
+            cb.checked = ev.target.checked;
+        });
+        updateBulkDeleteButtonState();
+    });
+
+    document.querySelector('#users-table tbody').addEventListener('change', (ev) => {
+        if (ev.target.classList.contains('user-select-checkbox')) {
+            updateBulkDeleteButtonState();
+        }
+    });
+
+    document.getElementById('btn-bulk-delete-users').addEventListener('click', async () => {
+        const checked = Array.from(document.querySelectorAll('#users-table .user-select-checkbox:checked'));
+        if (checked.length === 0) return;
+        const names = checked.map((cb) => cb.dataset.userName).join('、');
+        if (!confirm(`選択した${checked.length}名（${names}）を削除します。学習履歴・対戦履歴・ランキングもすべて削除され、元に戻せません。よろしいですか？`)) {
+            return;
+        }
+        let successCount = 0;
+        const failures = [];
+        for (const cb of checked) {
+            const { ok, body } = await apiPost('delete_user', { user_id: Number(cb.value) });
+            if (ok) {
+                successCount++;
+            } else {
+                failures.push(`${cb.dataset.userName}（${body.error || '失敗'}）`);
+            }
+        }
+        if (failures.length > 0) {
+            alert(`${successCount}名を削除しました。以下は削除できませんでした:\n${failures.join('\n')}`);
+        }
+        loadUsers();
+    });
 
     document.querySelector('#users-table tbody').addEventListener('click', (ev) => {
         const viewBtn = ev.target.closest('button[data-view-user]');
@@ -466,6 +513,81 @@
         document.getElementById('cu-birthday').value = '';
     });
 
+    // ------- 利用者一斉登録（CSV） -------
+    function resetImportUsersTab() {
+        document.getElementById('import-csv-file').value = '';
+        document.getElementById('import-error').style.display = 'none';
+        document.getElementById('import-result').style.display = 'none';
+    }
+
+    document.getElementById('btn-download-import-sample').addEventListener('click', () => {
+        const csv = '\uFEFF名前,生年月日,権限\n山田 太郎,1945-04-01,\n鈴木 花子,,\n';
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'braincare_users_sample.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('btn-import-users').addEventListener('click', async () => {
+        const fileInput = document.getElementById('import-csv-file');
+        const errorEl = document.getElementById('import-error');
+        errorEl.style.display = 'none';
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+            errorEl.textContent = 'CSVファイルを選択してください';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('csv', fileInput.files[0]);
+
+        const res = await fetch('php/admin.php?action=import_users', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+        });
+        if (res.status === 401 || res.status === 403) {
+            handleAuthFailure();
+            return;
+        }
+        const body = await res.json();
+        if (!res.ok) {
+            errorEl.textContent = body.error || '取り込みに失敗しました';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        const resultEl = document.getElementById('import-result');
+        const titleEl = document.getElementById('import-result-title');
+        const tbody = document.querySelector('#import-result-table tbody');
+        titleEl.textContent = `登録 ${body.created.length}件 / スキップ ${body.skipped.length}件`;
+        tbody.innerHTML = [
+            ...body.created.map((r) => `
+                <tr>
+                    <td>${r.row}</td>
+                    <td>${escapeHtml(r.name)}</td>
+                    <td style="color:#16855a;font-weight:700;">登録しました</td>
+                </tr>
+            `),
+            ...body.skipped.map((r) => `
+                <tr>
+                    <td>${r.row}</td>
+                    <td>${escapeHtml(r.name)}</td>
+                    <td class="error-text">${escapeHtml(r.reason)}</td>
+                </tr>
+            `),
+        ].join('') || '<tr><td colspan="3" class="hint-text">対象データがありませんでした</td></tr>';
+        resultEl.style.display = 'block';
+        fileInput.value = '';
+        loadUsers();
+    });
+
     // ------- 利用者情報の編集 -------
     let editingUserId = null;
     const euPasswordField = document.getElementById('eu-password');
@@ -581,9 +703,24 @@
                 <td>${m.user_id ? escapeHtml(m.target_name) + 'さん' : '全員'}</td>
                 <td>${escapeHtml(m.sender_name)}</td>
                 <td>${escapeHtml(m.body)}</td>
+                <td><button class="btn btn-danger" data-delete-message="${m.id}" style="padding:8px 14px;font-size:0.95rem;min-height:auto;">取り消し</button></td>
             </tr>
-        `).join('') || '<tr><td colspan="4" class="hint-text">まだメッセージがありません</td></tr>';
+        `).join('') || '<tr><td colspan="5" class="hint-text">まだメッセージがありません</td></tr>';
     }
+
+    document.querySelector('#messages-table tbody').addEventListener('click', async (ev) => {
+        const btn = ev.target.closest('button[data-delete-message]');
+        if (!btn) return;
+        if (!confirm('このメッセージを取り消します。利用者側の画面にも表示されなくなります。よろしいですか？')) {
+            return;
+        }
+        const { ok, body } = await apiPost('delete_message', { id: Number(btn.dataset.deleteMessage) });
+        if (!ok) {
+            alert(body.error || '取り消しに失敗しました');
+            return;
+        }
+        loadSentMessages();
+    });
 
     document.getElementById('btn-send-message').addEventListener('click', async () => {
         const userId = document.getElementById('msg-target-select').value;
@@ -627,6 +764,12 @@
 
     document.getElementById('btn-export-history-csv').addEventListener('click', () => downloadHistoryCsv(null));
     document.getElementById('btn-export-user-csv').addEventListener('click', () => downloadHistoryCsv(currentUserDetailId));
+
+    document.getElementById('btn-export-user-pdf').addEventListener('click', () => {
+        const now = new Date();
+        document.getElementById('user-detail-print-meta').textContent = `出力日時: ${now.toLocaleString('ja-JP')}（出力者: ${currentAdminName || ''}）`;
+        window.print();
+    });
 
     // ------- 初期化 -------
     if (token) {

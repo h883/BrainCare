@@ -490,6 +490,38 @@ table.data-table tbody tr:hover {
     font-size: 0.9rem;
 }
 
+/* ------- PDFダウンロード（ブラウザの印刷機能を利用） ------- */
+.print-only {
+    display: none;
+}
+
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    .print-only {
+        display: block;
+    }
+    body {
+        background: #fff;
+    }
+    .admin-nav {
+        display: none !important;
+    }
+    .admin-layout {
+        display: block !important;
+    }
+    .admin-main {
+        padding: 0;
+    }
+    .card,
+    .stat-tile,
+    .badge-tile {
+        box-shadow: none !important;
+        border: 1px solid #ddd;
+    }
+}
+
 canvas.spot-canvas {
     background: #ffffff;
     border: 2px solid var(--color-surface-2);

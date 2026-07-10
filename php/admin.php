@@ -43,8 +43,14 @@ switch ($action) {
     case 'sent_messages':
         admin_action_sent_messages($pdo);
         break;
+    case 'delete_message':
+        admin_action_delete_message($pdo);
+        break;
     case 'export_history_csv':
         admin_action_export_history_csv($pdo);
+        break;
+    case 'import_users':
+        admin_action_import_users($pdo);
         break;
     default:
         braincare_json_response(['error' => '不明なactionです'], 400);
@@ -102,6 +108,116 @@ function admin_action_sent_messages(PDO $pdo): never
          LIMIT 100'
     );
     braincare_json_response(['messages' => $stmt->fetchAll()]);
+}
+
+function admin_action_delete_message(PDO $pdo): never
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        braincare_json_response(['error' => 'POSTメソッドのみ許可されています'], 405);
+    }
+
+    $raw = file_get_contents('php://input');
+    $body = json_decode($raw, true);
+    if (!is_array($body)) {
+        $body = $_POST;
+    }
+    $messageId = (int) ($body['id'] ?? 0);
+    if ($messageId <= 0) {
+        braincare_json_response(['error' => 'idが必要です'], 400);
+    }
+
+    $stmt = $pdo->prepare('SELECT id FROM messages WHERE id = :id LIMIT 1');
+    $stmt->execute(['id' => $messageId]);
+    if ($stmt->fetch() === false) {
+        braincare_json_response(['error' => 'メッセージが見つかりません'], 404);
+    }
+
+    $del = $pdo->prepare('DELETE FROM messages WHERE id = :id');
+    $del->execute(['id' => $messageId]);
+
+    braincare_json_response(['deleted' => true]);
+}
+
+function admin_action_import_users(PDO $pdo): never
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        braincare_json_response(['error' => 'POSTメソッドのみ許可されています'], 405);
+    }
+    if (!isset($_FILES['csv']) || $_FILES['csv']['error'] !== UPLOAD_ERR_OK) {
+        braincare_json_response(['error' => 'CSVファイルを選択してください'], 400);
+    }
+
+    $handle = fopen($_FILES['csv']['tmp_name'], 'r');
+    if ($handle === false) {
+        braincare_json_response(['error' => 'ファイルを読み込めませんでした'], 400);
+    }
+
+    // ExcelのUTF-8 BOM対策（先頭3バイトを確認し、BOMでなければ読み込み位置を戻す）
+    $bom = fread($handle, 3);
+    if ($bom !== "\xEF\xBB\xBF") {
+        rewind($handle);
+    }
+
+    $insert = $pdo->prepare('INSERT INTO users (name, password, birthday, role) VALUES (:name, NULL, :birthday, \'user\')');
+    $dupCheck = $pdo->prepare('SELECT id FROM users WHERE name = :name LIMIT 1');
+
+    $created = [];
+    $skipped = [];
+    $seenNames = [];
+    $rowNum = 0;
+
+    while (($cols = fgetcsv($handle)) !== false) {
+        $rowNum++;
+        if (count($cols) === 1 && trim((string) $cols[0]) === '') {
+            continue; // 空行はスキップ
+        }
+
+        $name = trim((string) ($cols[0] ?? ''));
+        $birthday = trim((string) ($cols[1] ?? ''));
+        $roleRaw = trim((string) ($cols[2] ?? ''));
+
+        if ($rowNum === 1 && $name === '名前') {
+            continue; // ヘッダー行はスキップ
+        }
+
+        if ($name === '' || mb_strlen($name) > 100) {
+            $skipped[] = ['row' => $rowNum, 'name' => $name, 'reason' => '名前が未入力、または100文字を超えています'];
+            continue;
+        }
+
+        if (in_array($roleRaw, ['admin', '管理者'], true)) {
+            $skipped[] = ['row' => $rowNum, 'name' => $name, 'reason' => '管理者アカウントは一括登録できません（個別に登録してください）'];
+            continue;
+        }
+
+        $birthdayValue = null;
+        if ($birthday !== '') {
+            $d = DateTime::createFromFormat('Y-m-d', $birthday);
+            if (!$d || $d->format('Y-m-d') !== $birthday) {
+                $skipped[] = ['row' => $rowNum, 'name' => $name, 'reason' => '生年月日はYYYY-MM-DD形式で入力してください'];
+                continue;
+            }
+            $birthdayValue = $birthday;
+        }
+
+        if (isset($seenNames[$name])) {
+            $skipped[] = ['row' => $rowNum, 'name' => $name, 'reason' => 'CSV内で名前が重複しています'];
+            continue;
+        }
+
+        $dupCheck->execute(['name' => $name]);
+        if ($dupCheck->fetch() !== false) {
+            $skipped[] = ['row' => $rowNum, 'name' => $name, 'reason' => 'その名前は既に登録されています'];
+            continue;
+        }
+
+        $insert->execute(['name' => $name, 'birthday' => $birthdayValue]);
+        $seenNames[$name] = true;
+        $created[] = ['row' => $rowNum, 'name' => $name];
+    }
+    fclose($handle);
+
+    braincare_json_response(['created' => $created, 'skipped' => $skipped]);
 }
 
 function admin_action_export_history_csv(PDO $pdo): never

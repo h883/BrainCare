@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/stats.php';
 
-braincare_require_admin();
+$currentAdmin = braincare_require_admin();
 
 $pdo = braincare_db();
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
@@ -15,6 +15,9 @@ switch ($action) {
         break;
     case 'create_user':
         admin_action_create_user($pdo);
+        break;
+    case 'delete_user':
+        admin_action_delete_user($pdo, $currentAdmin);
         break;
     case 'history':
         admin_action_history($pdo);
@@ -33,6 +36,46 @@ switch ($action) {
         break;
     default:
         braincare_json_response(['error' => '不明なactionです'], 400);
+}
+
+function admin_action_delete_user(PDO $pdo, array $currentAdmin): never
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        braincare_json_response(['error' => 'POSTメソッドのみ許可されています'], 405);
+    }
+
+    $raw = file_get_contents('php://input');
+    $body = json_decode($raw, true);
+    if (!is_array($body)) {
+        $body = $_POST;
+    }
+    $userId = (int) ($body['user_id'] ?? 0);
+    if ($userId <= 0) {
+        braincare_json_response(['error' => 'user_idが必要です'], 400);
+    }
+    if ($userId === (int) $currentAdmin['id']) {
+        braincare_json_response(['error' => '自分自身のアカウントは削除できません'], 400);
+    }
+
+    $stmt = $pdo->prepare('SELECT id, role FROM users WHERE id = :id LIMIT 1');
+    $stmt->execute(['id' => $userId]);
+    $target = $stmt->fetch();
+    if ($target === false) {
+        braincare_json_response(['error' => '利用者が見つかりません'], 404);
+    }
+
+    if ($target['role'] === 'admin') {
+        $adminCount = (int) $pdo->query("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'")->fetch()['c'];
+        if ($adminCount <= 1) {
+            braincare_json_response(['error' => '最後の管理者アカウントは削除できません'], 400);
+        }
+    }
+
+    // 学習履歴・対戦履歴・ランキング・認証トークンはON DELETE CASCADEで連鎖削除される
+    $del = $pdo->prepare('DELETE FROM users WHERE id = :id');
+    $del->execute(['id' => $userId]);
+
+    braincare_json_response(['deleted' => true]);
 }
 
 function admin_action_user_summary(PDO $pdo): never
@@ -121,7 +164,7 @@ function admin_action_history(PDO $pdo): never
     $userId = $_GET['user_id'] ?? null;
     $limit = min(500, max(1, (int) ($_GET['limit'] ?? 100)));
 
-    $sql = 'SELECT h.id, h.user_id, u.name AS user_name, h.game_type, h.score, h.correct, h.play_time, h.created_at
+    $sql = 'SELECT h.id, h.user_id, u.name AS user_name, h.game_type, h.source, h.score, h.correct, h.total_rounds, h.play_time, h.created_at
             FROM learning_history h
             INNER JOIN users u ON u.id = h.user_id';
     $params = [];

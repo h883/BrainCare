@@ -138,13 +138,99 @@
         return '#3a9d72';
     }
 
-    function weaknessChartItems(byGameType) {
-        return byGameType.map((r) => ({
-            label: GAME_LABELS[r.game_type] || r.game_type,
-            value: Number(r.accuracy_percent),
-            valueLabel: `${Math.round(Number(r.accuracy_percent))}%`,
-            color: accuracyColor(Number(r.accuracy_percent)),
-        }));
+    // 苦手分野を6分野同時に見比べられるレーダーチャート（常に固定の並び順で描画する）
+    const RADAR_DOMAIN_ORDER = ['calc', 'memory', 'number_order', 'word_scramble', 'true_false', 'spot_difference'];
+
+    function drawRadarChart(canvas, byGameType) {
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const dataMap = {};
+        byGameType.forEach((r) => { dataMap[r.game_type] = Number(r.accuracy_percent); });
+
+        const n = RADAR_DOMAIN_ORDER.length;
+        const angleStep = (Math.PI * 2) / n;
+        const cx = w / 2;
+        const cy = h / 2 - 8;
+        const radius = Math.min(w, h) / 2 - 70;
+        const angleFor = (i) => -Math.PI / 2 + i * angleStep;
+
+        // 目盛りの同心多角形(25/50/75/100%)
+        ctx.strokeStyle = '#e3d9c6';
+        ctx.lineWidth = 1;
+        [0.25, 0.5, 0.75, 1].forEach((frac) => {
+            ctx.beginPath();
+            for (let i = 0; i <= n; i++) {
+                const angle = angleFor(i % n);
+                const x = cx + radius * frac * Math.cos(angle);
+                const y = cy + radius * frac * Math.sin(angle);
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        });
+
+        // 軸線とラベル
+        ctx.strokeStyle = '#cabf9e';
+        ctx.fillStyle = '#3a3244';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        RADAR_DOMAIN_ORDER.forEach((type, i) => {
+            const angle = angleFor(i);
+            const x = cx + radius * Math.cos(angle);
+            const y = cy + radius * Math.sin(angle);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            const lx = cx + (radius + 34) * Math.cos(angle);
+            const ly = cy + (radius + 34) * Math.sin(angle);
+            ctx.fillText(GAME_LABELS[type] || type, lx, ly);
+        });
+
+        // データの多角形
+        ctx.beginPath();
+        RADAR_DOMAIN_ORDER.forEach((type, i) => {
+            const value = dataMap[type] ?? 0;
+            const angle = angleFor(i);
+            const r = radius * (value / 100);
+            const x = cx + r * Math.cos(angle);
+            const y = cy + r * Math.sin(angle);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(217, 119, 87, 0.25)';
+        ctx.strokeStyle = '#d97757';
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+
+        // 各分野の頂点と正答率の数値
+        RADAR_DOMAIN_ORDER.forEach((type, i) => {
+            const value = dataMap[type] ?? 0;
+            const angle = angleFor(i);
+            const r = radius * (value / 100);
+            const x = cx + r * Math.cos(angle);
+            const y = cy + r * Math.sin(angle);
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = accuracyColor(value);
+            ctx.fill();
+
+            ctx.fillStyle = '#6b7089';
+            ctx.font = '12px sans-serif';
+            const labelR = radius * (value / 100) + 14;
+            const lx2 = cx + labelR * Math.cos(angle);
+            const ly2 = cy + labelR * Math.sin(angle);
+            ctx.fillText(dataMap[type] !== undefined ? `${Math.round(value)}%` : '未プレイ', lx2, ly2);
+        });
+    }
+
+    function sourceTag(source) {
+        if (source === 'test') return '（テスト）';
+        if (source === 'battle') return '（対戦）';
+        return '';
     }
 
     function drawBarChart(canvas, items, options = {}) {
@@ -195,14 +281,34 @@
                 <td>${u.role === 'admin' ? '管理者' : '利用者'}</td>
                 <td>${u.created_at}</td>
                 <td><button class="btn btn-outline" data-view-user="${u.id}" style="padding:8px 14px;font-size:0.95rem;min-height:auto;">個人の記録を見る</button></td>
+                <td><button class="btn btn-danger" data-delete-user="${u.id}" data-user-name="${escapeHtml(u.name)}" style="padding:8px 14px;font-size:0.95rem;min-height:auto;">削除</button></td>
             </tr>
         `).join('');
     }
 
     document.querySelector('#users-table tbody').addEventListener('click', (ev) => {
-        const btn = ev.target.closest('button[data-view-user]');
-        if (btn) loadUserDetail(Number(btn.dataset.viewUser));
+        const viewBtn = ev.target.closest('button[data-view-user]');
+        if (viewBtn) {
+            loadUserDetail(Number(viewBtn.dataset.viewUser));
+            return;
+        }
+        const delBtn = ev.target.closest('button[data-delete-user]');
+        if (delBtn) {
+            deleteUser(Number(delBtn.dataset.deleteUser), delBtn.dataset.userName);
+        }
     });
+
+    async function deleteUser(userId, userName) {
+        if (!confirm(`「${userName}」さんを削除します。学習履歴・対戦履歴・ランキングもすべて削除され、元に戻せません。よろしいですか？`)) {
+            return;
+        }
+        const { ok, body } = await apiPost('delete_user', { user_id: userId });
+        if (!ok) {
+            alert(body.error || '削除に失敗しました');
+            return;
+        }
+        loadUsers();
+    }
 
     // ------- 利用者個人の記録（管理者による閲覧） -------
     document.getElementById('btn-user-detail-back').addEventListener('click', () => {
@@ -248,18 +354,17 @@
             <div class="stat-tile"><div class="value">${rankText}</div><div class="label">対戦ランキング</div></div>
         `;
 
-        drawBarChart(
+        drawRadarChart(
             document.getElementById('user-detail-chart'),
-            weaknessChartItems(data.by_game_type),
-            { max: 100 }
+            data.by_game_type
         );
 
         tbody.innerHTML = data.history.map((h) => `
             <tr>
                 <td>${h.created_at}</td>
-                <td>${GAME_LABELS[h.game_type] || h.game_type}</td>
+                <td>${GAME_LABELS[h.game_type] || h.game_type}${sourceTag(h.source)}</td>
                 <td>${h.score}</td>
-                <td>${h.correct}</td>
+                <td>${h.correct} / ${h.total_rounds}</td>
             </tr>
         `).join('') || '<tr><td colspan="4" class="hint-text">まだプレイ履歴がありません</td></tr>';
     }
@@ -300,9 +405,9 @@
             <tr>
                 <td>${h.created_at}</td>
                 <td>${escapeHtml(h.user_name)}</td>
-                <td>${GAME_LABELS[h.game_type] || h.game_type}</td>
+                <td>${GAME_LABELS[h.game_type] || h.game_type}${sourceTag(h.source)}</td>
                 <td>${h.score}</td>
-                <td>${h.correct}</td>
+                <td>${h.correct} / ${h.total_rounds}</td>
                 <td>${h.play_time}</td>
             </tr>
         `).join('');

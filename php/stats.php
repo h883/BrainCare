@@ -15,11 +15,12 @@ function braincare_user_summary(PDO $pdo, int $userId): array
     $totals->execute(['uid' => $userId]);
     $totalsRow = $totals->fetch();
 
-    // 各ゲームは5問構成のため、correctの平均を5で割った値が正答率(%)になる。
+    // 対戦(みんなで遊ぶ)は出題数を可変にできるため、正答率は単純平均ではなく
+    // SUM(correct)/SUM(total_rounds)の加重平均で計算する。
     // 正答率が低いゲーム種別ほど「苦手分野」として画面に表示する。
     $byGameType = $pdo->prepare(
         'SELECT game_type, COUNT(*) AS plays, AVG(score) AS avg_score, AVG(correct) AS avg_correct,
-                AVG(correct) / 5 * 100 AS accuracy_percent
+                SUM(correct) / SUM(total_rounds) * 100 AS accuracy_percent
          FROM learning_history WHERE user_id = :uid GROUP BY game_type'
     );
     $byGameType->execute(['uid' => $userId]);
@@ -33,7 +34,7 @@ function braincare_user_summary(PDO $pdo, int $userId): array
     usort($byGameTypeRows, fn ($a, $b) => $a['accuracy_percent'] <=> $b['accuracy_percent']);
 
     $history = $pdo->prepare(
-        'SELECT game_type, score, correct, play_time, created_at
+        'SELECT game_type, source, score, correct, total_rounds, play_time, created_at
          FROM learning_history WHERE user_id = :uid
          ORDER BY created_at DESC LIMIT 20'
     );

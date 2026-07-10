@@ -33,16 +33,19 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
     CONSTRAINT fk_auth_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 学習履歴（ソロプレイ・認知機能テスト）
--- source: 'solo'=通常のソロプレイ, 'test'=認知機能テストの1分野分。
+-- 学習履歴（ソロプレイ・認知機能テスト・対戦）
+-- source: 'solo'=通常のソロプレイ, 'test'=認知機能テストの1分野分, 'battle'=対戦(みんなで遊ぶ)。
 -- 「今日の目標」（3ゲーム遊ぶ／テストを受ける）の判定に使う。
+-- total_rounds: そのプレイの出題数。対戦は出題数を可変にできるため、
+-- 正答率は AVG(correct) ではなく SUM(correct)/SUM(total_rounds) で計算する。
 CREATE TABLE IF NOT EXISTS learning_history (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     user_id INT UNSIGNED NOT NULL,
     game_type VARCHAR(50) NOT NULL,
-    source ENUM('solo', 'test') NOT NULL DEFAULT 'solo',
+    source ENUM('solo', 'test', 'battle') NOT NULL DEFAULT 'solo',
     score INT NOT NULL DEFAULT 0,
     correct INT NOT NULL DEFAULT 0,
+    total_rounds INT NOT NULL DEFAULT 5,
     play_time INT NOT NULL DEFAULT 0 COMMENT '秒数',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),

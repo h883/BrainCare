@@ -232,43 +232,99 @@
         return '#3a9d72';
     }
 
-    function drawBarChart(canvas, items, options = {}) {
+    // 苦手分野を6分野同時に見比べられるレーダーチャート（常に固定の並び順で描画する）
+    const RADAR_DOMAIN_ORDER = ['calc', 'memory', 'number_order', 'word_scramble', 'true_false', 'spot_difference'];
+
+    function drawRadarChart(canvas, byGameType) {
         const ctx = canvas.getContext('2d');
         const w = canvas.width;
         const h = canvas.height;
         ctx.clearRect(0, 0, w, h);
-        if (items.length === 0) {
-            ctx.fillStyle = '#9a9fb5';
-            ctx.font = '16px sans-serif';
-            ctx.fillText('まだデータがありません', 16, h / 2);
-            return;
-        }
-        const max = options.max || Math.max(1, ...items.map((i) => i.value));
-        const padding = 30;
-        const barGap = 12;
-        const barWidth = (w - padding * 2) / items.length - barGap;
 
-        items.forEach((item, i) => {
-            const x = padding + i * (barWidth + barGap);
-            const barHeight = (h - padding * 2) * (item.value / max);
-            const y = h - padding - barHeight;
-            ctx.fillStyle = item.color || '#4a8fb0';
-            ctx.fillRect(x, y, barWidth, barHeight);
-            ctx.fillStyle = '#3a3f55';
-            ctx.textAlign = 'center';
-            ctx.fillText(item.valueLabel ?? String(item.value), x + barWidth / 2, y - 6);
+        const dataMap = {};
+        byGameType.forEach((r) => { dataMap[r.game_type] = Number(r.accuracy_percent); });
+
+        const n = RADAR_DOMAIN_ORDER.length;
+        const angleStep = (Math.PI * 2) / n;
+        const cx = w / 2;
+        const cy = h / 2 - 8;
+        const radius = Math.min(w, h) / 2 - 70;
+        const angleFor = (i) => -Math.PI / 2 + i * angleStep;
+
+        // 目盛りの同心多角形(25/50/75/100%)
+        ctx.strokeStyle = '#e3d9c6';
+        ctx.lineWidth = 1;
+        [0.25, 0.5, 0.75, 1].forEach((frac) => {
+            ctx.beginPath();
+            for (let i = 0; i <= n; i++) {
+                const angle = angleFor(i % n);
+                const x = cx + radius * frac * Math.cos(angle);
+                const y = cy + radius * frac * Math.sin(angle);
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        });
+
+        // 軸線とラベル
+        ctx.strokeStyle = '#cabf9e';
+        ctx.fillStyle = '#3a3244';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        RADAR_DOMAIN_ORDER.forEach((type, i) => {
+            const angle = angleFor(i);
+            const x = cx + radius * Math.cos(angle);
+            const y = cy + radius * Math.sin(angle);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            const lx = cx + (radius + 34) * Math.cos(angle);
+            const ly = cy + (radius + 34) * Math.sin(angle);
+            ctx.fillText(GAME_LABELS[type] || type, lx, ly);
+        });
+
+        // データの多角形
+        ctx.beginPath();
+        RADAR_DOMAIN_ORDER.forEach((type, i) => {
+            const value = dataMap[type] ?? 0;
+            const angle = angleFor(i);
+            const r = radius * (value / 100);
+            const x = cx + r * Math.cos(angle);
+            const y = cy + r * Math.sin(angle);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(217, 119, 87, 0.25)';
+        ctx.strokeStyle = '#d97757';
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+
+        // 各分野の頂点と正答率の数値
+        RADAR_DOMAIN_ORDER.forEach((type, i) => {
+            const value = dataMap[type] ?? 0;
+            const angle = angleFor(i);
+            const r = radius * (value / 100);
+            const x = cx + r * Math.cos(angle);
+            const y = cy + r * Math.sin(angle);
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = accuracyColor(value);
+            ctx.fill();
+
             ctx.fillStyle = '#6b7089';
-            ctx.fillText(item.label, x + barWidth / 2, h - padding + 16);
+            ctx.font = '12px sans-serif';
+            const labelR = radius * (value / 100) + 14;
+            const lx2 = cx + labelR * Math.cos(angle);
+            const ly2 = cy + labelR * Math.sin(angle);
+            ctx.fillText(dataMap[type] !== undefined ? `${Math.round(value)}%` : '未プレイ', lx2, ly2);
         });
     }
 
-    function weaknessChartItems(byGameType) {
-        return byGameType.map((r) => ({
-            label: GAME_LABELS[r.game_type] || r.game_type,
-            value: Number(r.accuracy_percent),
-            valueLabel: `${Math.round(Number(r.accuracy_percent))}%`,
-            color: accuracyColor(Number(r.accuracy_percent)),
-        }));
+    function sourceTag(source) {
+        if (source === 'test') return '（テスト）';
+        if (source === 'battle') return '（対戦）';
+        return '';
     }
 
     async function loadMyPage() {
@@ -306,18 +362,17 @@
                 <div class="stat-tile"><div class="value">${rankText}</div><div class="label">対戦ランキング</div></div>
             `;
 
-            drawBarChart(
+            drawRadarChart(
                 document.getElementById('mypage-chart-game-type'),
-                weaknessChartItems(data.by_game_type),
-                { max: 100 }
+                data.by_game_type
             );
 
             tbody.innerHTML = data.history.map((h) => `
                 <tr>
                     <td>${h.created_at}</td>
-                    <td>${GAME_LABELS[h.game_type] || h.game_type}</td>
+                    <td>${GAME_LABELS[h.game_type] || h.game_type}${sourceTag(h.source)}</td>
                     <td>${h.score}</td>
-                    <td>${h.correct}</td>
+                    <td>${h.correct} / ${h.total_rounds}</td>
                 </tr>
             `).join('') || '<tr><td colspan="4" class="hint-text">まだプレイ履歴がありません</td></tr>';
         } catch (e) {

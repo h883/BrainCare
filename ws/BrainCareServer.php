@@ -133,7 +133,8 @@ class BrainCareServer implements MessageComponentInterface
             return;
         }
         $gameType = (string) ($data['game_type'] ?? '');
-        $this->battleManager->hostCreateRoom($conn, $meta['screen_id'], $gameType);
+        $rounds = (int) ($data['rounds'] ?? 5);
+        $this->battleManager->hostCreateRoom($conn, $meta['screen_id'], $gameType, $rounds);
     }
 
     private function handleBattleRoomJoin(ConnectionInterface $conn, array $data): void

@@ -59,7 +59,8 @@
             btn.className = 'btn';
             btn.textContent = label;
             btn.addEventListener('click', () => {
-                ws.send(JSON.stringify({ type: 'host_create_room', game_type: type }));
+                const rounds = parseInt(document.getElementById('host-rounds-select').value, 10);
+                ws.send(JSON.stringify({ type: 'host_create_room', game_type: type, rounds }));
             });
             list.appendChild(btn);
         });
@@ -73,7 +74,7 @@
                 break;
             case 'room_created':
                 document.getElementById('host-code-label').textContent = data.code;
-                document.getElementById('host-game-label').textContent = GAME_LABELS[data.game_type] || '';
+                document.getElementById('host-game-label').textContent = `${GAME_LABELS[data.game_type] || ''}（${data.rounds}問）`;
                 document.getElementById('host-joined-label').textContent = '';
                 showHostState('waiting');
                 break;

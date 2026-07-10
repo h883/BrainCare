@@ -36,4 +36,7 @@ interface GameInterface
 
     /** 総合テスト（CognitiveTestGame）が各分野を1問ずつ出題するために使う */
     public function limitToSingleRound(): void;
+
+    /** 対戦（みんなで遊ぶ）でTV側が選んだ出題数に変更するために使う */
+    public function setTotalRounds(int $rounds): void;
 }

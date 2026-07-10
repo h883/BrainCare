@@ -144,7 +144,7 @@ class SessionManager
             $domains = $engine->domainResults();
             $perDomainPlayTime = max(1, intdiv($playTime, max(1, count($domains))));
             $stmt = $this->pdo->prepare(
-                'INSERT INTO learning_history (user_id, game_type, source, score, correct, play_time) VALUES (:user_id, :game_type, :source, :score, :correct, :play_time)'
+                'INSERT INTO learning_history (user_id, game_type, source, score, correct, total_rounds, play_time) VALUES (:user_id, :game_type, :source, :score, :correct, :total_rounds, :play_time)'
             );
             foreach ($domains as $domain) {
                 $stmt->execute([
@@ -153,12 +153,13 @@ class SessionManager
                     'source' => 'test',
                     'score' => $domain['score'],
                     'correct' => $domain['correct'],
+                    'total_rounds' => $domain['total_rounds'],
                     'play_time' => $perDomainPlayTime,
                 ]);
             }
         } else {
             $stmt = $this->pdo->prepare(
-                'INSERT INTO learning_history (user_id, game_type, source, score, correct, play_time) VALUES (:user_id, :game_type, :source, :score, :correct, :play_time)'
+                'INSERT INTO learning_history (user_id, game_type, source, score, correct, total_rounds, play_time) VALUES (:user_id, :game_type, :source, :score, :correct, :total_rounds, :play_time)'
             );
             $stmt->execute([
                 'user_id' => $session['user']['id'],
@@ -166,6 +167,7 @@ class SessionManager
                 'source' => 'solo',
                 'score' => $session['score'],
                 'correct' => $session['correct'],
+                'total_rounds' => $engine->totalRounds(),
                 'play_time' => $playTime,
             ]);
         }

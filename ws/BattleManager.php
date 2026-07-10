@@ -37,13 +37,18 @@ class BattleManager
     ) {
     }
 
-    /** TV(main)がゲーム種別を選んで参加コードを発行する */
-    public function hostCreateRoom(ConnectionInterface $mainConn, string $screenId, string $gameType): void
+    private const MIN_ROUNDS = 3;
+    private const MAX_ROUNDS = 30;
+    private const DEFAULT_ROUNDS = 5;
+
+    /** TV(main)がゲーム種別・出題数を選んで参加コードを発行する */
+    public function hostCreateRoom(ConnectionInterface $mainConn, string $screenId, string $gameType, int $rounds = self::DEFAULT_ROUNDS): void
     {
         if (!in_array($gameType, \BrainCare\Games\GameFactory::types(), true)) {
             $this->cm->send($mainConn, ['type' => 'error', 'message' => '不明なgame_typeです']);
             return;
         }
+        $rounds = max(self::MIN_ROUNDS, min(self::MAX_ROUNDS, $rounds));
 
         do {
             $code = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
@@ -52,10 +57,11 @@ class BattleManager
         $this->rooms[$code] = [
             'screenId' => $screenId,
             'gameType' => $gameType,
+            'rounds' => $rounds,
             'mainConn' => $mainConn,
             'players' => [],
         ];
-        $this->cm->send($mainConn, ['type' => 'room_created', 'code' => $code, 'game_type' => $gameType]);
+        $this->cm->send($mainConn, ['type' => 'room_created', 'code' => $code, 'game_type' => $gameType, 'rounds' => $rounds]);
     }
 
     /** スマホが参加コードを入力して参加する */
@@ -83,7 +89,7 @@ class BattleManager
         }
 
         unset($this->rooms[$code]);
-        $this->startBattle($room['players'][0], $room['players'][1], $room['gameType'], $room['screenId']);
+        $this->startBattle($room['players'][0], $room['players'][1], $room['gameType'], $room['screenId'], $room['rounds']);
     }
 
     public function isInBattle(ConnectionInterface $conn): bool
@@ -131,15 +137,17 @@ class BattleManager
         $this->endBattle($battleId, 'disconnected', $remainingIndex);
     }
 
-    private function startBattle(array $p1, array $p2, string $gameType, string $screenId): void
+    private function startBattle(array $p1, array $p2, string $gameType, string $screenId, int $rounds = self::DEFAULT_ROUNDS): void
     {
         $battleId = (string) $this->nextBattleId++;
         $engine = GameFactory::create($gameType);
+        $engine->setTotalRounds($rounds);
 
         $this->battles[$battleId] = [
             'engine' => $engine,
             'gameType' => $gameType,
             'screenId' => $screenId,
+            'startedAt' => time(),
             'players' => [
                 ['conn' => $p1['conn'], 'user' => $p1['user'], 'score' => 0, 'correct' => 0, 'answered' => false, 'result' => null],
                 ['conn' => $p2['conn'], 'user' => $p2['user'], 'score' => 0, 'correct' => 0, 'answered' => false, 'result' => null],
@@ -309,6 +317,25 @@ class BattleManager
 
         $this->applyRanking($p1['user']['id'], $winnerIndex === null ? null : ($winnerIndex === 0));
         $this->applyRanking($p2['user']['id'], $winnerIndex === null ? null : ($winnerIndex === 1));
+
+        // 対戦の結果も本人の学習記録（苦手分野グラフ・プレイ履歴）に反映する
+        /** @var GameInterface $engine */
+        $engine = $battle['engine'];
+        $playTime = max(1, time() - $battle['startedAt']);
+        $historyStmt = $this->pdo->prepare(
+            'INSERT INTO learning_history (user_id, game_type, source, score, correct, total_rounds, play_time) VALUES (:user_id, :game_type, :source, :score, :correct, :total_rounds, :play_time)'
+        );
+        foreach ([$p1, $p2] as $p) {
+            $historyStmt->execute([
+                'user_id' => $p['user']['id'],
+                'game_type' => $battle['gameType'],
+                'source' => 'battle',
+                'score' => $p['score'],
+                'correct' => $p['correct'],
+                'total_rounds' => $engine->totalRounds(),
+                'play_time' => $playTime,
+            ]);
+        }
 
         $message = [
             'type' => 'game_over',

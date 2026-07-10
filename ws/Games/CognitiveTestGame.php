@@ -18,7 +18,7 @@ class CognitiveTestGame extends AbstractGame
     /** @var GameInterface[] */
     private array $subEngines = [];
 
-    /** @var array<int, array{game_type: string, score: int, correct: int}> */
+    /** @var array<int, array{game_type: string, score: int, correct: int, total_rounds: int}> */
     private array $domainResults = [];
 
     public function __construct()
@@ -65,12 +65,13 @@ class CognitiveTestGame extends AbstractGame
             'game_type' => $sub->type(),
             'score' => $result['points'],
             'correct' => $result['correct'] ? 1 : 0,
+            'total_rounds' => $sub->totalRounds(),
         ];
 
         return $result;
     }
 
-    /** @return array<int, array{game_type: string, score: int, correct: int}> */
+    /** @return array<int, array{game_type: string, score: int, correct: int, total_rounds: int}> */
     public function domainResults(): array
     {
         return $this->domainResults;

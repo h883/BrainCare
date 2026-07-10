@@ -37,7 +37,12 @@ abstract class AbstractGame implements GameInterface
 
     public function limitToSingleRound(): void
     {
-        $this->totalRounds = 1;
+        $this->setTotalRounds(1);
+    }
+
+    public function setTotalRounds(int $rounds): void
+    {
+        $this->totalRounds = max(1, $rounds);
     }
 
     protected static function randomPoints(bool $correct): int
